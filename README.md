@@ -1,10 +1,7 @@
 <div align="center">
   <img src="Resources/Icons/KidoX-400.png" width="160" height="160" alt="KidoX app icon">
   <h1>KidoX</h1>
-  <h3>A focused macOS launcher built with Swift and SwiftUI.</h3>
-  <p>
-    KidoX keeps your applications, folders, and launch workflows close at hand in a native macOS experience.
-  </p>
+  <p>A Modern Launchpad Replacement for Mac. Built with Swift and SwiftUI.</p>
   <p>
     <a href="https://kidox.app">Website</a>
     ·
@@ -12,6 +9,16 @@
   </p>
   <img src="media/kidox-launcher.png" width="100%" alt="KidoX launcher screenshot">
 </div>
+
+## About KidoX App
+
+Apple removed Launchpad in macOS Tahoe, replacing a familiar visual app launcher with a different app discovery experience.
+
+KidoX is built for people who still want a fast, visual, keyboard-friendly way to browse, organize, and launch Mac apps.
+
+It restores the Launchpad-style grid while improving the parts that matter day to day: quick search, clean organization, smooth navigation, customizable behavior, and a native macOS feel built with SwiftUI.
+
+KidoX is not a system hack or a patched copy of Launchpad. It is an independent macOS app designed to provide a modern launcher experience that feels at home on current versions of macOS.
 
 ## Overview
 
@@ -66,7 +73,7 @@ Release packaging requires local signing, notarization, and production configura
 
 ## Maintainers
 
-- [Chengchao](https://github.com/defcc)
+- [defcc](https://github.com/defcc)
 
 ## Contributing
 
