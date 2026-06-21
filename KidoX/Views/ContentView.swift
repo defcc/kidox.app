@@ -4324,6 +4324,10 @@ private struct KidoXBackground: View {
     @State private var wallpaper: NSImage?
     @State private var customImage: NSImage?
 
+    init() {
+        _wallpaper = State(initialValue: DesktopWallpaperProvider.cachedWallpaperImage())
+    }
+
     private var backgroundStyle: KidoXBackgroundStyle {
         let style = KidoXBackgroundStyle(storageValue: backgroundStyleRaw)
         return licenseStatus == "active" || !style.requiresPro ? style : .wallpaper

@@ -535,7 +535,6 @@ final class KidoXPanelController {
         focusWorkItem = nil
 
         IconCache.clearMemoryCaches()
-        DesktopWallpaperProvider.clearCache()
         KidoXReleaseTransientImageCaches()
     }
 
