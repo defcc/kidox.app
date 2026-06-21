@@ -1,0 +1,10 @@
+.DS_Store
+DerivedData/
+Releases/
+*.xcresult
+*.xcuserstate
+xcuserdata/
+
+# Local release configuration.
+Packaging/DMG/*.env
+Packaging/DMG/*.local

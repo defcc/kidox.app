@@ -1,0 +1,899 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05BDF0B54BA598DB56CBD9EF /* MenuBarIcon.pdf in Copy Menu Bar Icon */ = {isa = PBXBuildFile; fileRef = 5EBC5C2B020BBFF0FFD4A31F /* MenuBarIcon.pdf */; };
+		240AB112F938B65F3CE923EE /* KidoXIPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0B2C8BD037AFB34AFD5A43 /* KidoXIPC.swift */; };
+		24DD8E98C581F2F5E4771AD1 /* KidoXDockIconPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24DD8E97C581F2F5E4771AD1 /* KidoXDockIconPreference.swift */; };
+		40F1ACF7A371B44F2800EEF4 /* KidoXDockPinning.swift in Sources */ = {isa = PBXBuildFile; fileRef = D62244C9FAF6556BFE100083 /* KidoXDockPinning.swift */; };
+		41D000000000000000000001 /* KidoXDockTilePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 41D000000000000000000005 /* KidoXDockTilePlugin.m */; };
+		41D000000000000000000002 /* KidoXDockTile.docktileplugin in Embed Dock Tile PlugIns */ = {isa = PBXBuildFile; fileRef = 41D000000000000000000007 /* KidoXDockTile.docktileplugin */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		41D000000000000000000003 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */; };
+		6B5911E81780E765EB5D8392 /* KidoXIPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */; };
+		7B7C420BEA1CD08D80A90BEE /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F881AF6BD83DB604C679F6 /* main.swift */; };
+		7D4F6325A77E4E5A93D01C11 /* KidoXAppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4F6326A77E4E5A93D01C11 /* KidoXAppConfiguration.swift */; };
+		85D7E3508F49206695883A52 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */; };
+		A10000000000000000000001 /* KidoXActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9C7D8D6F5A43210C1D2E3F /* KidoXActivationController.swift */; };
+		A10000000000000000000002 /* KidoXPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 513584E23FCA3DCCF444ECC8 /* KidoXPanelController.swift */; };
+		A10000000000000000000003 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A4E9C41D2F4A31A1B2C3D4 /* SettingsWindowController.swift */; };
+		A10000000000000000000004 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF73965B84FC0BACF4502AA /* StatusItemController.swift */; };
+		A10000000000000000000005 /* LaunchItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE85AA7DC3E9BBD736879FB /* LaunchItem.swift */; };
+		A10000000000000000000006 /* LaunchPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9CD6E68011C426EB7E63BE /* LaunchPage.swift */; };
+		A10000000000000000000007 /* ApplicationDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */; };
+		A10000000000000000000008 /* ApplicationScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20304E500EC07865B67C86C2 /* ApplicationScanner.swift */; };
+		A10000000000000000000009 /* DesktopWallpaperProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045FC68B14A6D660B0756A4B /* DesktopWallpaperProvider.swift */; };
+		A1000000000000000000000A /* KidoXDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */; };
+		A1000000000000000000000B /* ClyAppLicenseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */; };
+		A1000000000000000000000C /* KidoXStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD567238E5AC9A0DCC04022 /* KidoXStore.swift */; };
+		A1000000000000000000000D /* ScreenMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E3EA0D2488379B13239E81D /* ScreenMetrics.swift */; };
+		A1000000000000000000000E /* DateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F17261BFB7F63389620898F /* DateFormatting.swift */; };
+		A1000000000000000000000F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3452AE295A50BC705810D4B9 /* ContentView.swift */; };
+		A10000000000000000000010 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A4E9C21D2F4A31A1B2C3D4 /* SettingsView.swift */; };
+		A10000000000000000000011 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4F6321A77E4E5A93D01C11 /* KeyboardShortcuts */; };
+		A10000000000000000000012 /* KidoXUpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* KidoXUpdaterController.swift */; };
+		A10000000000000000000013 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4F6324A77E4E5A93D01C11 /* Sparkle */; };
+		A10000000000000000000015 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000016 /* LaunchAtLogin */; };
+		B9F0364C9AE5896547A90BBF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */; };
+		CCB4D327FBE48D51B880EFDB /* KidoXIPC.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */ = {isa = PBXBuildFile; fileRef = D26EF870054B45358116382D /* KidoXMinimal.icns */; };
+		E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0680A3CD8545019456F5B5BA /* KidoX.icon */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		41D000000000000000000010 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0C92559564B09FCDFE1B561E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 41D000000000000000000020;
+			remoteInfo = KidoXDockTile;
+		};
+		F5C516C602B5D1FC1E48132A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0C92559564B09FCDFE1B561E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DD640009D9243144E9F00971;
+			remoteInfo = KidoXIPC;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		41D000000000000000000030 /* Embed Dock Tile PlugIns */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				41D000000000000000000002 /* KidoXDockTile.docktileplugin in Embed Dock Tile PlugIns */,
+			);
+			name = "Embed Dock Tile PlugIns";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		64DB72F5CDCCB314745A8479 /* Copy Menu Bar Icon */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Icons;
+			dstSubfolderSpec = 7;
+			files = (
+				05BDF0B54BA598DB56CBD9EF /* MenuBarIcon.pdf in Copy Menu Bar Icon */,
+			);
+			name = "Copy Menu Bar Icon";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C8D96C5C1ED9135AB567779E /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				CCB4D327FBE48D51B880EFDB /* KidoXIPC.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		045FC68B14A6D660B0756A4B /* DesktopWallpaperProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DesktopWallpaperProvider.swift; sourceTree = "<group>"; };
+		0680A3CD8545019456F5B5BA /* KidoX.icon */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.iconcomposer.icon; path = KidoX.icon; sourceTree = "<group>"; };
+		0B9C7D8D6F5A43210C1D2E3F /* KidoXActivationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXActivationController.swift; sourceTree = "<group>"; };
+		0E9CD6E68011C426EB7E63BE /* LaunchPage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchPage.swift; sourceTree = "<group>"; };
+		1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = KidoXIPC.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		20304E500EC07865B67C86C2 /* ApplicationScanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationScanner.swift; sourceTree = "<group>"; };
+		24DD8E97C581F2F5E4771AD1 /* KidoXDockIconPreference.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDockIconPreference.swift; sourceTree = "<group>"; };
+		3452AE295A50BC705810D4B9 /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		3E3EA0D2488379B13239E81D /* ScreenMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenMetrics.swift; sourceTree = "<group>"; };
+		41D000000000000000000004 /* KidoXDockTilePlugin.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = KidoXDockTilePlugin.h; sourceTree = "<group>"; };
+		41D000000000000000000005 /* KidoXDockTilePlugin.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = KidoXDockTilePlugin.m; sourceTree = "<group>"; };
+		41D000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		41D000000000000000000007 /* KidoXDockTile.docktileplugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KidoXDockTile.docktileplugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		513584E23FCA3DCCF444ECC8 /* KidoXPanelController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXPanelController.swift; sourceTree = "<group>"; };
+		5EBC5C2B020BBFF0FFD4A31F /* MenuBarIcon.pdf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = image.pdf; path = MenuBarIcon.pdf; sourceTree = "<group>"; };
+		601FA2917A744135B0042970 /* KidoX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KidoX.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D4F6326A77E4E5A93D01C11 /* KidoXAppConfiguration.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXAppConfiguration.swift; sourceTree = "<group>"; };
+		80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		8CF73965B84FC0BACF4502AA /* StatusItemController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
+		8F17261BFB7F63389620898F /* DateFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DateFormatting.swift; sourceTree = "<group>"; };
+		9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDatabase.swift; sourceTree = "<group>"; };
+		9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationDirectoryMonitor.swift; sourceTree = "<group>"; };
+		A10000000000000000000014 /* KidoXUpdaterController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXUpdaterController.swift; sourceTree = "<group>"; };
+		B4F881AF6BD83DB604C679F6 /* main.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClyAppLicenseService.swift; sourceTree = "<group>"; };
+		B7A4E9C21D2F4A31A1B2C3D4 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B7A4E9C41D2F4A31A1B2C3D4 /* SettingsWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		D26EF870054B45358116382D /* KidoXMinimal.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = KidoXMinimal.icns; sourceTree = "<group>"; };
+		D62244C9FAF6556BFE100083 /* KidoXDockPinning.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDockPinning.swift; sourceTree = "<group>"; };
+		DAE85AA7DC3E9BBD736879FB /* LaunchItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchItem.swift; sourceTree = "<group>"; };
+		EFD567238E5AC9A0DCC04022 /* KidoXStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXStore.swift; sourceTree = "<group>"; };
+		FB0B2C8BD037AFB34AFD5A43 /* KidoXIPC.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXIPC.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		41D000000000000000000040 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				41D000000000000000000003 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6AB221F259C4B9B4A8FFD23F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B9F0364C9AE5896547A90BBF /* Cocoa.framework in Frameworks */,
+				6B5911E81780E765EB5D8392 /* KidoXIPC.framework in Frameworks */,
+				A10000000000000000000011 /* KeyboardShortcuts in Frameworks */,
+				A10000000000000000000013 /* Sparkle in Frameworks */,
+				A10000000000000000000015 /* LaunchAtLogin in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E7CA01E02ACE20B3CA7A9A32 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85D7E3508F49206695883A52 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0DAF930A751289665F138324 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				DAE85AA7DC3E9BBD736879FB /* LaunchItem.swift */,
+				0E9CD6E68011C426EB7E63BE /* LaunchPage.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		41D000000000000000000050 /* KidoXDockTile */ = {
+			isa = PBXGroup;
+			children = (
+				41D000000000000000000006 /* Info.plist */,
+				41D000000000000000000004 /* KidoXDockTilePlugin.h */,
+				41D000000000000000000005 /* KidoXDockTilePlugin.m */,
+			);
+			path = KidoXDockTile;
+			sourceTree = "<group>";
+		};
+		46ABD40BF52ED86D7AC06A6D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				601FA2917A744135B0042970 /* KidoX.app */,
+				1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */,
+				41D000000000000000000007 /* KidoXDockTile.docktileplugin */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4B3C115D4C9F95C46E9B1A12 /* KidoX */ = {
+			isa = PBXGroup;
+			children = (
+				B4F881AF6BD83DB604C679F6 /* main.swift */,
+				E534E8A09C53E9201BB1E58E /* App */,
+				0DAF930A751289665F138324 /* Models */,
+				AD3EACB6CC916BC0613AA9D5 /* Services */,
+				618809C0631D89D83C8D4B4B /* Stores */,
+				5FEBFB210E7D0F784E452F91 /* Support */,
+				BD51A75CA87F55B762F85E74 /* Views */,
+			);
+			path = KidoX;
+			sourceTree = "<group>";
+		};
+		4DA8146969C55BAE682CA3A2 = {
+			isa = PBXGroup;
+			children = (
+				46ABD40BF52ED86D7AC06A6D /* Products */,
+				C51E7235C1F2FA3993191764 /* Frameworks */,
+				4B3C115D4C9F95C46E9B1A12 /* KidoX */,
+				41D000000000000000000050 /* KidoXDockTile */,
+				55A6ECB574C160D7360EE65A /* KidoXIPC */,
+				D2B706288DBB9E674D9AAE9B /* Resources */,
+			);
+			sourceTree = "<group>";
+		};
+		55A6ECB574C160D7360EE65A /* KidoXIPC */ = {
+			isa = PBXGroup;
+			children = (
+				D62244C9FAF6556BFE100083 /* KidoXDockPinning.swift */,
+				24DD8E97C581F2F5E4771AD1 /* KidoXDockIconPreference.swift */,
+				FB0B2C8BD037AFB34AFD5A43 /* KidoXIPC.swift */,
+			);
+			path = KidoXIPC;
+			sourceTree = "<group>";
+		};
+		5FEBFB210E7D0F784E452F91 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				8F17261BFB7F63389620898F /* DateFormatting.swift */,
+				7D4F6326A77E4E5A93D01C11 /* KidoXAppConfiguration.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		618809C0631D89D83C8D4B4B /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				EFD567238E5AC9A0DCC04022 /* KidoXStore.swift */,
+				3E3EA0D2488379B13239E81D /* ScreenMetrics.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		AD3EACB6CC916BC0613AA9D5 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */,
+				20304E500EC07865B67C86C2 /* ApplicationScanner.swift */,
+				B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */,
+				045FC68B14A6D660B0756A4B /* DesktopWallpaperProvider.swift */,
+				9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */,
+				A10000000000000000000014 /* KidoXUpdaterController.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		BD51A75CA87F55B762F85E74 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				3452AE295A50BC705810D4B9 /* ContentView.swift */,
+				B7A4E9C21D2F4A31A1B2C3D4 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		C39DA8F296C575BD607C1EF6 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		C51E7235C1F2FA3993191764 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C39DA8F296C575BD607C1EF6 /* OS X */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D2B706288DBB9E674D9AAE9B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D2B706298DBB9E674D9AAE9B /* Icons */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		D2B706298DBB9E674D9AAE9B /* Icons */ = {
+			isa = PBXGroup;
+			children = (
+				0680A3CD8545019456F5B5BA /* KidoX.icon */,
+				5EBC5C2B020BBFF0FFD4A31F /* MenuBarIcon.pdf */,
+				D26EF870054B45358116382D /* KidoXMinimal.icns */,
+			);
+			path = Icons;
+			sourceTree = "<group>";
+		};
+		E534E8A09C53E9201BB1E58E /* App */ = {
+			isa = PBXGroup;
+			children = (
+				0B9C7D8D6F5A43210C1D2E3F /* KidoXActivationController.swift */,
+				513584E23FCA3DCCF444ECC8 /* KidoXPanelController.swift */,
+				B7A4E9C41D2F4A31A1B2C3D4 /* SettingsWindowController.swift */,
+				8CF73965B84FC0BACF4502AA /* StatusItemController.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		7C5B3BCAA8F111D1D47058D4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		41D000000000000000000020 /* KidoXDockTile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 41D000000000000000000080 /* Build configuration list for PBXNativeTarget "KidoXDockTile" */;
+			buildPhases = (
+				41D000000000000000000070 /* Sources */,
+				41D000000000000000000040 /* Frameworks */,
+				41D000000000000000000060 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KidoXDockTile;
+			productName = KidoXDockTile;
+			productReference = 41D000000000000000000007 /* KidoXDockTile.docktileplugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+		DD640009D9243144E9F00971 /* KidoXIPC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 13FA8CFFAFE0CB78E2CAFF6D /* Build configuration list for PBXNativeTarget "KidoXIPC" */;
+			buildPhases = (
+				7C5B3BCAA8F111D1D47058D4 /* Headers */,
+				8393B7ECDC1C48132D6D9948 /* Sources */,
+				E7CA01E02ACE20B3CA7A9A32 /* Frameworks */,
+				F5C0346D143E205ABEEC5E6C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KidoXIPC;
+			productName = KidoXIPC;
+			productReference = 1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		E8558D952FCA0F57B8B50A10 /* KidoX */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C48F8EC5D14DB81E10018655 /* Build configuration list for PBXNativeTarget "KidoX" */;
+			buildPhases = (
+				6D6B14F6C29DE5B23429D1EA /* Sources */,
+				6AB221F259C4B9B4A8FFD23F /* Frameworks */,
+				CE4DC5DBC92AD1683DFFD5E9 /* Resources */,
+				64DB72F5CDCCB314745A8479 /* Copy Menu Bar Icon */,
+				41D000000000000000000030 /* Embed Dock Tile PlugIns */,
+				C8D96C5C1ED9135AB567779E /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0A9B032AC28B6F378BFC7015 /* PBXTargetDependency */,
+				41D000000000000000000011 /* PBXTargetDependency */,
+			);
+			name = KidoX;
+			packageProductDependencies = (
+				0D4F6321A77E4E5A93D01C11 /* KeyboardShortcuts */,
+				0D4F6324A77E4E5A93D01C11 /* Sparkle */,
+				A10000000000000000000016 /* LaunchAtLogin */,
+			);
+			productName = KidoX;
+			productReference = 601FA2917A744135B0042970 /* KidoX.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0C92559564B09FCDFE1B561E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					41D000000000000000000020 = {
+						DevelopmentTeam = LCR49HJMTK;
+						ProvisioningStyle = Automatic;
+					};
+					DD640009D9243144E9F00971 = {
+						DevelopmentTeam = LCR49HJMTK;
+						ProvisioningStyle = Automatic;
+					};
+					E8558D952FCA0F57B8B50A10 = {
+						DevelopmentTeam = LCR49HJMTK;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = BF10F53A57CCB1F9F80CB2BD /* Build configuration list for PBXProject "KidoXApp" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4DA8146969C55BAE682CA3A2;
+			packageReferences = (
+				0D4F6320A77E4E5A93D01C11 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				0D4F6323A77E4E5A93D01C11 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				A10000000000000000000017 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
+			);
+			productRefGroup = 46ABD40BF52ED86D7AC06A6D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E8558D952FCA0F57B8B50A10 /* KidoX */,
+				41D000000000000000000020 /* KidoXDockTile */,
+				DD640009D9243144E9F00971 /* KidoXIPC */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		41D000000000000000000060 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE4DC5DBC92AD1683DFFD5E9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */,
+				E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5C0346D143E205ABEEC5E6C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		41D000000000000000000070 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				41D000000000000000000001 /* KidoXDockTilePlugin.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6D6B14F6C29DE5B23429D1EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7B7C420BEA1CD08D80A90BEE /* main.swift in Sources */,
+				A10000000000000000000001 /* KidoXActivationController.swift in Sources */,
+				A10000000000000000000002 /* KidoXPanelController.swift in Sources */,
+				A10000000000000000000003 /* SettingsWindowController.swift in Sources */,
+				A10000000000000000000004 /* StatusItemController.swift in Sources */,
+				A10000000000000000000005 /* LaunchItem.swift in Sources */,
+				A10000000000000000000006 /* LaunchPage.swift in Sources */,
+				A10000000000000000000007 /* ApplicationDirectoryMonitor.swift in Sources */,
+				A10000000000000000000008 /* ApplicationScanner.swift in Sources */,
+				A10000000000000000000009 /* DesktopWallpaperProvider.swift in Sources */,
+				A1000000000000000000000A /* KidoXDatabase.swift in Sources */,
+				A1000000000000000000000B /* ClyAppLicenseService.swift in Sources */,
+				A1000000000000000000000C /* KidoXStore.swift in Sources */,
+				A1000000000000000000000D /* ScreenMetrics.swift in Sources */,
+				A1000000000000000000000E /* DateFormatting.swift in Sources */,
+				7D4F6325A77E4E5A93D01C11 /* KidoXAppConfiguration.swift in Sources */,
+				A10000000000000000000012 /* KidoXUpdaterController.swift in Sources */,
+				A1000000000000000000000F /* ContentView.swift in Sources */,
+				A10000000000000000000010 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8393B7ECDC1C48132D6D9948 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				40F1ACF7A371B44F2800EEF4 /* KidoXDockPinning.swift in Sources */,
+				24DD8E98C581F2F5E4771AD1 /* KidoXDockIconPreference.swift in Sources */,
+				240AB112F938B65F3CE923EE /* KidoXIPC.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0A9B032AC28B6F378BFC7015 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KidoXIPC;
+			target = DD640009D9243144E9F00971 /* KidoXIPC */;
+			targetProxy = F5C516C602B5D1FC1E48132A /* PBXContainerItemProxy */;
+		};
+		41D000000000000000000011 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KidoXDockTile;
+			target = 41D000000000000000000020 /* KidoXDockTile */;
+			targetProxy = 41D000000000000000000010 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		35BC790B826B4940ECA64F68 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX.IPC;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		41D000000000000000000081 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidoXDockTile/Info.plist;
+				MACH_O_TYPE = mh_bundle;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX.DockTile;
+				PRODUCT_NAME = KidoXDockTile;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = docktileplugin;
+			};
+			name = Debug;
+		};
+		41D000000000000000000082 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidoXDockTile/Info.plist;
+				MACH_O_TYPE = mh_bundle;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX.DockTile;
+				PRODUCT_NAME = KidoXDockTile;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = docktileplugin;
+			};
+			name = Release;
+		};
+		5B3C5384173D228FB8EC5A09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX.IPC;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
+		71003D015A6933D3AD1AFCDB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = KidoX;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_ENABLE_CFBUNDLEICONS_MERGE = YES;
+				INFOPLIST_FILE = KidoX/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = KidoX;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX;
+				PRODUCT_NAME = KidoX;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		92A6429AC913BFD41AE7DB40 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = KidoX;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 9;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_ENABLE_CFBUNDLEICONS_MERGE = YES;
+				INFOPLIST_FILE = KidoX/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = KidoX;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX;
+				PRODUCT_NAME = KidoX;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B12001335CFEA1323FC04367 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		DA65B15AFF2C57606C2060AE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		13FA8CFFAFE0CB78E2CAFF6D /* Build configuration list for PBXNativeTarget "KidoXIPC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B3C5384173D228FB8EC5A09 /* Release */,
+				35BC790B826B4940ECA64F68 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		41D000000000000000000080 /* Build configuration list for PBXNativeTarget "KidoXDockTile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				41D000000000000000000082 /* Release */,
+				41D000000000000000000081 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BF10F53A57CCB1F9F80CB2BD /* Build configuration list for PBXProject "KidoXApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B12001335CFEA1323FC04367 /* Debug */,
+				DA65B15AFF2C57606C2060AE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C48F8EC5D14DB81E10018655 /* Build configuration list for PBXNativeTarget "KidoX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				71003D015A6933D3AD1AFCDB /* Release */,
+				92A6429AC913BFD41AE7DB40 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0D4F6320A77E4E5A93D01C11 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.0;
+			};
+		};
+		0D4F6323A77E4E5A93D01C11 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.3;
+			};
+		};
+		A10000000000000000000017 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin-Modern";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0D4F6321A77E4E5A93D01C11 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0D4F6320A77E4E5A93D01C11 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+		0D4F6324A77E4E5A93D01C11 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0D4F6323A77E4E5A93D01C11 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+		A10000000000000000000016 /* LaunchAtLogin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000017 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */;
+			productName = LaunchAtLogin;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 0C92559564B09FCDFE1B561E /* Project object */;
+}
