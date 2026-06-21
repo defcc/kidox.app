@@ -12,6 +12,7 @@
     ·
     <a href="https://kidox.app/support">Support</a>
   </p>
+  <img src="media/kidox-launcher.png" width="100%" alt="KidoX launcher screenshot">
 </div>
 
 ## Overview
