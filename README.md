@@ -6,12 +6,9 @@
     KidoX keeps your applications, folders, and launch workflows close at hand in a native macOS experience.
   </p>
   <p>
-    <a href="https://kidox.app">
-      <img src="https://img.shields.io/badge/Website-kidox.app-111111?style=for-the-badge" alt="Website">
-    </a>
-    <a href="https://kidox.app/download/">
-      <img src="https://img.shields.io/badge/Download-macOS-2563eb?style=for-the-badge" alt="Download for macOS">
-    </a>
+    <a href="https://kidox.app">Website</a>
+    ·
+    <a href="https://kidox.app/download/">Download</a>
   </p>
   <img src="media/kidox-launcher.png" width="100%" alt="KidoX launcher screenshot">
 </div>
