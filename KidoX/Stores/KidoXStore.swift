@@ -174,6 +174,11 @@ enum IconCache {
 @Observable
 @MainActor
 final class KidoXStore {
+    struct UninstallOutcome {
+        let uninstallResult: ApplicationUninstallResult
+        let pageMutationResult: PageMutationResult
+    }
+
     struct PageMutationResult {
         static let none = PageMutationResult()
 
@@ -200,6 +205,7 @@ final class KidoXStore {
 
     private let scanner = ApplicationScanner()
     private let database = KidoXDatabase()
+    private let uninstaller = ApplicationUninstaller()
     private var applicationDirectoryMonitor: ApplicationDirectoryMonitor?
     private var didLoadPersistedApplications = false
     private var isRefreshingApplications = false
@@ -432,6 +438,22 @@ final class KidoXStore {
         guard !pages[location.pageIndex].items[location.itemIndex].isHidden else { return }
         pages[location.pageIndex].items[location.itemIndex].isHidden = true
         database.savePages(pages)
+    }
+
+    @MainActor
+    func makeUninstallPlan(for item: LaunchItem) async throws -> ApplicationUninstallPlan {
+        try await uninstaller.makePlan(for: item)
+    }
+
+    @MainActor
+    func uninstallApplication(_ item: LaunchItem, plan: ApplicationUninstallPlan) async throws -> UninstallOutcome {
+        let uninstallResult = try await uninstaller.uninstall(plan)
+        let pageMutationResult = removeApplicationRecord(matching: item)
+        database.savePages(pages)
+        return UninstallOutcome(
+            uninstallResult: uninstallResult,
+            pageMutationResult: pageMutationResult
+        )
     }
 
     // MARK: - Reorder / Folder mutations
@@ -955,6 +977,53 @@ final class KidoXStore {
     private func compactRootOrder(in pageIndex: Int) {
         let root = pages[pageIndex].rootItems
         applyOrder(root, in: pageIndex)
+    }
+
+    private func removeApplicationRecord(matching item: LaunchItem) -> PageMutationResult {
+        let key = stableKey(for: item)
+        var result = PageMutationResult()
+
+        for pageIndex in pages.indices {
+            pages[pageIndex].items.removeAll {
+                $0.kind == .application && stableKey(for: $0) == key
+            }
+            removeEmptyFolders(in: pageIndex)
+            compactVisibleSiblingOrder(in: pageIndex)
+        }
+
+        let emptyPageIDs = pages
+            .filter(\.items.isEmpty)
+            .sorted { $0.sortIndex < $1.sortIndex }
+            .map(\.id)
+
+        for pageID in emptyPageIDs {
+            result.merge(removePage(id: pageID))
+        }
+
+        compactPageOrder(&pages)
+        return result
+    }
+
+    private func removeEmptyFolders(in pageIndex: Int) {
+        let childParentIDs = Set(pages[pageIndex].items.compactMap(\.parentID))
+        pages[pageIndex].items.removeAll {
+            $0.kind == .folder && !childParentIDs.contains($0.id)
+        }
+    }
+
+    private func compactVisibleSiblingOrder(in pageIndex: Int) {
+        let parentIDs = Set(pages[pageIndex].items.map(\.parentID))
+        for parentID in parentIDs {
+            let siblings = pages[pageIndex].items
+                .filter { $0.parentID == parentID && !$0.isHidden }
+                .sorted { $0.sortIndex < $1.sortIndex }
+
+            for (sortIndex, item) in siblings.enumerated() {
+                if let itemIndex = pages[pageIndex].items.firstIndex(where: { $0.id == item.id }) {
+                    pages[pageIndex].items[itemIndex].sortIndex = sortIndex
+                }
+            }
+        }
     }
 
     private func compactRootOrder(in pageIndex: Int, pages: inout [LaunchPage]) {

@@ -743,6 +743,9 @@ struct KidoXForegroundLayer: View {
                 store.revealInFinder(item)
                 onDismiss()
             },
+            onUninstall: { item in
+                confirmUninstall(item)
+            },
             onRenameItem: { itemID, name in
                 guard isPro else {
                     onOpenLicenseSettings()
@@ -849,6 +852,9 @@ struct KidoXForegroundLayer: View {
             canRename: isPro,
             openAction: { open(item) },
             revealAction: { store.revealInFinder(item) },
+            uninstallAction: canUninstall(item) ? {
+                confirmUninstall(item)
+            } : nil,
             renameAction: { name in
                 guard isPro else {
                     onOpenLicenseSettings()
@@ -878,6 +884,7 @@ struct KidoXForegroundLayer: View {
             isDropTarget: false,
             openAction: { },
             revealAction: { },
+            uninstallAction: nil,
             renameAction: nil,
             ungroupAction: nil
         )
@@ -1133,6 +1140,99 @@ struct KidoXForegroundLayer: View {
             onLaunchApp()
             store.open(item)
         }
+    }
+
+    private func confirmUninstall(_ item: LaunchItem) {
+        guard item.kind == .application else { return }
+        guard canUninstall(item) else {
+            showUninstallErrorAlert(message: "\(item.effectiveDisplayName) is a protected macOS system app and cannot be moved to Trash by KidoX.")
+            return
+        }
+
+        Task { @MainActor in
+            do {
+                let plan = try await store.makeUninstallPlan(for: item)
+                showUninstallConfirmation(item: item, plan: plan)
+            } catch {
+                showUninstallErrorAlert(message: error.localizedDescription)
+            }
+        }
+    }
+
+    private func canUninstall(_ item: LaunchItem) -> Bool {
+        item.kind == .application && ApplicationUninstaller.canUninstallApplication(at: item.url)
+    }
+
+    private func showUninstallConfirmation(item: LaunchItem, plan: ApplicationUninstallPlan) {
+        let controller = UninstallConfirmationDialogController()
+        controller.present(item: item, plan: plan) {
+            await uninstall(item, plan: plan)
+        }
+    }
+
+    @MainActor
+    private func uninstall(_ item: LaunchItem, plan: ApplicationUninstallPlan) async -> Bool {
+        do {
+            let outcome = try await store.uninstallApplication(item, plan: plan)
+            applyPageMutationResult(outcome.pageMutationResult)
+            ensureKeyboardSelectionIsValid()
+            showUninstallCompletionAlert(outcome.uninstallResult)
+            return true
+        } catch {
+            showUninstallErrorAlert(message: error.localizedDescription)
+            return false
+        }
+    }
+
+    private func showUninstallCompletionAlert(_ result: ApplicationUninstallResult) {
+        guard result.hasDataRemovalFailures else {
+            let alert = NSAlert()
+            alert.alertStyle = .informational
+            alert.messageText = "\(result.appURL.lastPathComponent) was uninstalled."
+            alert.informativeText = """
+            Removed \(result.removedDataTargets.count) data location\(result.removedDataTargets.count == 1 ? "" : "s").
+
+            App Data: \(formattedByteCount(result.removedDataByteCount))
+            App: \(formattedByteCount(result.appByteCount))
+            """
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+            return
+        }
+
+        let failedPaths = result.failedDataRemovals
+            .prefix(8)
+            .map { "\(formattedByteCount($0.target.byteCount))  \($0.url.path)\n\($0.errorDescription)" }
+            .joined(separator: "\n\n")
+        let omittedCount = max(result.failedDataRemovals.count - 8, 0)
+        let omittedText = omittedCount > 0 ? "\n\nAnd \(omittedCount) more." : ""
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "\(result.appURL.lastPathComponent) was uninstalled, but some app data could not be removed."
+        alert.informativeText = """
+        App Data: \(formattedByteCount(result.removedDataByteCount))
+        App: \(formattedByteCount(result.appByteCount))
+
+        Failed removals:
+
+        \(failedPaths)\(omittedText)
+        """
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func showUninstallErrorAlert(message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Unable to uninstall app"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private func formattedByteCount(_ byteCount: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
     }
 
     private static let folderMorphAnimation: Animation = .spring(response: 0.42, dampingFraction: 0.92, blendDuration: 0.06)
@@ -1828,6 +1928,9 @@ struct KidoXForegroundLayer: View {
                     isDropTarget: false,
                     openAction: { open(item) },
                     revealAction: { store.revealInFinder(item) },
+                    uninstallAction: canUninstall(item) ? {
+                        confirmUninstall(item)
+                    } : nil,
                     renameAction: nil,
                     ungroupAction: nil
                 )
@@ -1862,6 +1965,7 @@ struct KidoXForegroundLayer: View {
                 isDropTarget: false,
                 openAction: { },
                 revealAction: { },
+                uninstallAction: nil,
                 renameAction: nil,
                 ungroupAction: nil
             )
@@ -2799,6 +2903,362 @@ struct KidoXForegroundLayer: View {
     }
 }
 
+@MainActor
+private final class UninstallConfirmationDialogController {
+    private var window: NSWindow?
+
+    func present(
+        item: LaunchItem,
+        plan: ApplicationUninstallPlan,
+        onConfirm: @escaping @MainActor () async -> Bool
+    ) {
+        let view = UninstallConfirmationDialog(
+            item: item,
+            plan: plan,
+            onCancel: { [weak self] in
+                self?.close()
+            },
+            onConfirm: { [weak self] in
+                let didComplete = await onConfirm()
+                if didComplete {
+                    self?.close()
+                }
+                return didComplete
+            }
+        )
+
+        let hostingController = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Uninstall \(item.effectiveDisplayName)"
+        window.styleMask = [.titled, .closable]
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false
+        window.backgroundColor = .windowBackgroundColor
+        window.setContentSize(NSSize(width: 680, height: 560))
+        window.center()
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+        window.standardWindowButton(.closeButton)?.isHidden = true
+        self.window = window
+
+        NSApp.runModal(for: window)
+        self.window = nil
+    }
+
+    private func close() {
+        guard let window else { return }
+        NSApp.stopModal()
+        window.close()
+        self.window = nil
+    }
+}
+
+private struct UninstallConfirmationDialog: View {
+    let item: LaunchItem
+    let plan: ApplicationUninstallPlan
+    let onCancel: () -> Void
+    let onConfirm: @MainActor () async -> Bool
+
+    @State private var isUninstalling = false
+
+    private var allTargets: [UninstallDisplayTarget] {
+        [UninstallDisplayTarget(
+            title: item.effectiveDisplayName,
+            subtitle: plan.appURL.path,
+            byteCount: plan.appByteCount,
+            kind: .application
+        )] + plan.dataTargets.map {
+            UninstallDisplayTarget(
+                title: $0.url.lastPathComponent,
+                subtitle: $0.url.path,
+                byteCount: $0.byteCount,
+                kind: .data
+            )
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+
+            Divider()
+                .padding(.top, 18)
+
+            VStack(alignment: .leading, spacing: 16) {
+                summaryGrid
+                targetList
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 18)
+
+            Spacer(minLength: 14)
+
+            Divider()
+
+            bottomBar
+        }
+        .frame(width: 680, height: 560)
+        .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    private var header: some View {
+        HStack(spacing: 16) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: plan.appURL.path))
+                .resizable()
+                .frame(width: 56, height: 56)
+                .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 3)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Uninstall \(item.effectiveDisplayName)?")
+                    .font(.system(size: 22, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text("This will delete the app and its related data from this Mac.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Text(plan.bundleIdentifier)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 5))
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 28)
+    }
+
+    private var summaryGrid: some View {
+        HStack(spacing: 10) {
+            UninstallSummaryMetric(
+                title: "App Data",
+                value: formattedByteCount(plan.dataByteCount),
+                symbolName: "folder"
+            )
+            UninstallSummaryMetric(
+                title: "App",
+                value: formattedByteCount(plan.appByteCount),
+                symbolName: "app"
+            )
+            UninstallSummaryMetric(
+                title: "Total",
+                value: formattedByteCount(plan.totalRecoverableByteCount),
+                symbolName: "sum"
+            )
+        }
+    }
+
+    private var targetList: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Text("Items")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("\(allTargets.count)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(.secondary.opacity(0.12), in: Capsule())
+
+                Spacer()
+
+                Text("\(plan.dataTargets.count) data location\(plan.dataTargets.count == 1 ? "" : "s")")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(allTargets) { target in
+                        UninstallTargetRow(target: target)
+                        if target.id != allTargets.last?.id {
+                            Divider()
+                                .padding(.leading, 36)
+                        }
+                    }
+
+                    if plan.dataTargets.isEmpty {
+                        Divider()
+                            .padding(.leading, 36)
+                        noDataRow
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            .frame(height: 214)
+            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.separator.opacity(0.70), lineWidth: 1)
+            )
+        }
+    }
+
+    private var noDataRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle")
+                .foregroundStyle(.secondary)
+                .frame(width: 26)
+
+            Text("No matching bundle-id user data found.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 11)
+    }
+
+    private var bottomBar: some View {
+        HStack(alignment: .center, spacing: 18) {
+            Spacer()
+
+            Button("Cancel") {
+                onCancel()
+            }
+            .keyboardShortcut(.cancelAction)
+            .disabled(isUninstalling)
+            .frame(width: 104)
+
+            Button {
+                guard !isUninstalling else { return }
+                isUninstalling = true
+                Task { @MainActor in
+                    let didComplete = await onConfirm()
+                    if !didComplete {
+                        isUninstalling = false
+                    }
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    if isUninstalling {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.82)
+                    }
+                    Text(isUninstalling ? "Uninstalling..." : "Uninstall")
+                        .frame(minWidth: 88)
+                }
+            }
+            .keyboardShortcut(.defaultAction)
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .disabled(isUninstalling)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .background(.secondary.opacity(0.035))
+    }
+
+    private func formattedByteCount(_ byteCount: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
+    }
+}
+
+private struct UninstallSummaryMetric: View {
+    let title: String
+    let value: String
+    let symbolName: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbolName)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, height: 26)
+                .background(.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 70)
+        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct UninstallDisplayTarget: Identifiable {
+    enum Kind {
+        case application
+        case data
+    }
+
+    let title: String
+    let subtitle: String
+    let byteCount: Int64
+    let kind: Kind
+
+    var id: String {
+        "\(kind)-\(subtitle)"
+    }
+}
+
+private struct UninstallTargetRow: View {
+    let target: UninstallDisplayTarget
+
+    var body: some View {
+        HStack(spacing: 10) {
+            icon
+                .frame(width: 26)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(target.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text(target.subtitle)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+
+            Spacer(minLength: 12)
+
+            Text(ByteCountFormatter.string(fromByteCount: target.byteCount, countStyle: .file))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        if target.kind == .application {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: target.subtitle))
+                .resizable()
+                .frame(width: 20, height: 20)
+                .shadow(color: .black.opacity(0.10), radius: 2, x: 0, y: 1)
+        } else {
+            Image(systemName: "folder")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 enum SearchSelectionMove {
     case up, down, left, right
 }
@@ -3372,6 +3832,7 @@ private struct AppTile: View, Equatable {
     var canRename: Bool = true
     let openAction: () -> Void
     let revealAction: () -> Void
+    var uninstallAction: (() -> Void)? = nil
     let renameAction: ((String) -> Void)?
     var renameUnavailableAction: (() -> Void)? = nil
     var renameCancelAction: (() -> Void)? = nil
@@ -3580,6 +4041,11 @@ private struct AppTile: View, Equatable {
             Button("Show in Finder") {
                 revealAction()
             }
+            if let uninstallAction {
+                Button("Uninstall App...") {
+                    uninstallAction()
+                }
+            }
             Divider()
             Text(item.bundleIdentifier ?? item.sourcePath)
         }
@@ -3593,6 +4059,7 @@ private struct FolderDetailAppTile: View, Equatable {
     let isDragging: Bool
     let openAction: () -> Void
     let revealAction: () -> Void
+    var uninstallAction: (() -> Void)? = nil
 
     nonisolated static func == (lhs: FolderDetailAppTile, rhs: FolderDetailAppTile) -> Bool {
         lhs.item == rhs.item
@@ -3627,6 +4094,11 @@ private struct FolderDetailAppTile: View, Equatable {
             }
             Button("Show in Finder") {
                 revealAction()
+            }
+            if let uninstallAction {
+                Button("Uninstall App...") {
+                    uninstallAction()
+                }
             }
             Divider()
             Text(item.bundleIdentifier ?? item.sourcePath)
@@ -4606,6 +5078,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
     let onRootDragStarted: (UUID) -> Void
     let onOpen: (LaunchItem) -> Void
     let onReveal: (LaunchItem) -> Void
+    let onUninstall: (LaunchItem) -> Void
     let onRenameItem: (LaunchItem.ID, String) -> Void
     let onRenameUnavailable: () -> Void
     let onRenameEnded: () -> Void
@@ -4631,6 +5104,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
         }
         view.onOpen = onOpen
         view.onReveal = onReveal
+        view.onUninstall = onUninstall
         view.onRenameItem = onRenameItem
         view.onRenameUnavailable = onRenameUnavailable
         view.onRenameEnded = onRenameEnded
@@ -4659,6 +5133,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
         }
         nsView.onOpen = onOpen
         nsView.onReveal = onReveal
+        nsView.onUninstall = onUninstall
         nsView.onRenameItem = onRenameItem
         nsView.onRenameUnavailable = onRenameUnavailable
         nsView.onRenameEnded = onRenameEnded
@@ -4706,6 +5181,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     var onPageChanged: ((Int) -> Void)?
     var onOpen: ((LaunchItem) -> Void)?
     var onReveal: ((LaunchItem) -> Void)?
+    var onUninstall: ((LaunchItem) -> Void)?
     var onRenameItem: ((LaunchItem.ID, String) -> Void)?
     var onRenameUnavailable: (() -> Void)?
     var onRenameEnded: (() -> Void)?
@@ -5511,6 +5987,13 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             hideItem.attributedTitle = proMenuAttributedTitle("Hide App", showsPro: showsProBadges)
             menu.addItem(hideItem)
 
+            if ApplicationUninstaller.canUninstallApplication(at: item.url) {
+                let uninstallItem = NSMenuItem(title: "Uninstall App...", action: #selector(handleContextUninstall(_:)), keyEquivalent: "")
+                uninstallItem.target = self
+                uninstallItem.representedObject = item
+                menu.addItem(uninstallItem)
+            }
+
             menu.addItem(.separator())
 
             let info = NSMenuItem(title: item.bundleIdentifier ?? item.sourcePath, action: nil, keyEquivalent: "")
@@ -5548,6 +6031,11 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     @objc private func handleContextHide(_ sender: NSMenuItem) {
         guard let item = sender.representedObject as? LaunchItem else { return }
         onHide?(item)
+    }
+
+    @objc private func handleContextUninstall(_ sender: NSMenuItem) {
+        guard let item = sender.representedObject as? LaunchItem else { return }
+        onUninstall?(item)
     }
 
     private func beginInlineRename(for item: LaunchItem) {

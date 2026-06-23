@@ -25,6 +25,7 @@
 		A10000000000000000000005 /* LaunchItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE85AA7DC3E9BBD736879FB /* LaunchItem.swift */; };
 		A10000000000000000000006 /* LaunchPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E9CD6E68011C426EB7E63BE /* LaunchPage.swift */; };
 		A10000000000000000000007 /* ApplicationDirectoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */; };
+		A10000000000000000000019 /* ApplicationUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* ApplicationUninstaller.swift */; };
 		A10000000000000000000008 /* ApplicationScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20304E500EC07865B67C86C2 /* ApplicationScanner.swift */; };
 		A10000000000000000000009 /* DesktopWallpaperProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045FC68B14A6D660B0756A4B /* DesktopWallpaperProvider.swift */; };
 		A1000000000000000000000A /* KidoXDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */; };
@@ -120,6 +121,7 @@
 		8F17261BFB7F63389620898F /* DateFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DateFormatting.swift; sourceTree = "<group>"; };
 		9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDatabase.swift; sourceTree = "<group>"; };
 		9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationDirectoryMonitor.swift; sourceTree = "<group>"; };
+		A1000000000000000000001A /* ApplicationUninstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationUninstaller.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* KidoXUpdaterController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXUpdaterController.swift; sourceTree = "<group>"; };
 		B4F881AF6BD83DB604C679F6 /* main.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClyAppLicenseService.swift; sourceTree = "<group>"; };
@@ -251,6 +253,7 @@
 			isa = PBXGroup;
 			children = (
 				9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */,
+				A1000000000000000000001A /* ApplicationUninstaller.swift */,
 				20304E500EC07865B67C86C2 /* ApplicationScanner.swift */,
 				B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */,
 				045FC68B14A6D660B0756A4B /* DesktopWallpaperProvider.swift */,
@@ -484,6 +487,7 @@
 				A10000000000000000000005 /* LaunchItem.swift in Sources */,
 				A10000000000000000000006 /* LaunchPage.swift in Sources */,
 				A10000000000000000000007 /* ApplicationDirectoryMonitor.swift in Sources */,
+				A10000000000000000000019 /* ApplicationUninstaller.swift in Sources */,
 				A10000000000000000000008 /* ApplicationScanner.swift in Sources */,
 				A10000000000000000000009 /* DesktopWallpaperProvider.swift in Sources */,
 				A1000000000000000000000A /* KidoXDatabase.swift in Sources */,
