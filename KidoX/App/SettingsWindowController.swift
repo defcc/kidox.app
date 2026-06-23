@@ -32,7 +32,7 @@ final class SettingsWindowController: NSWindowController {
 
         // ── Window ───────────────────────────────────────────────────
         let window = NSWindow(contentViewController: splitVC)
-        window.title = "KidoX Settings"
+        window.title = KidoXL10n.ui("KidoX Settings")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden

@@ -69,7 +69,7 @@ final class KidoXAppDelegate: NSObject, NSApplicationDelegate {
         appItem.submenu = appMenu
         addMenuItem(
             to: appMenu,
-            title: "Settings...",
+            title: KidoXL10n.ui("Settings..."),
             action: #selector(openSettingsMenuItem(_:)),
             keyEquivalent: ",",
             target: self
@@ -77,7 +77,7 @@ final class KidoXAppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(.separator())
         addMenuItem(
             to: appMenu,
-            title: "Quit KidoX",
+            title: KidoXL10n.ui("Quit KidoX"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q",
             target: NSApp
@@ -86,23 +86,23 @@ final class KidoXAppDelegate: NSObject, NSApplicationDelegate {
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
 
-        let editMenu = NSMenu(title: "Edit")
+        let editMenu = NSMenu(title: KidoXL10n.ui("Edit"))
         editItem.submenu = editMenu
-        addMenuItem(to: editMenu, title: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        addMenuItem(to: editMenu, title: KidoXL10n.ui("Undo"), action: Selector(("undo:")), keyEquivalent: "z")
         addMenuItem(
             to: editMenu,
-            title: "Redo",
+            title: KidoXL10n.ui("Redo"),
             action: Selector(("redo:")),
             keyEquivalent: "Z",
             modifierMask: [.command, .shift]
         )
         editMenu.addItem(.separator())
-        addMenuItem(to: editMenu, title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        addMenuItem(to: editMenu, title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        addMenuItem(to: editMenu, title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        addMenuItem(to: editMenu, title: "Delete", action: #selector(NSText.delete(_:)))
+        addMenuItem(to: editMenu, title: KidoXL10n.ui("Cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        addMenuItem(to: editMenu, title: KidoXL10n.ui("Copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        addMenuItem(to: editMenu, title: KidoXL10n.ui("Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        addMenuItem(to: editMenu, title: KidoXL10n.ui("Delete"), action: #selector(NSText.delete(_:)))
         editMenu.addItem(.separator())
-        addMenuItem(to: editMenu, title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        addMenuItem(to: editMenu, title: KidoXL10n.ui("Select All"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
 
         NSApp.mainMenu = mainMenu
     }

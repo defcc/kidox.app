@@ -39,6 +39,8 @@
 		A10000000000000000000012 /* KidoXUpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* KidoXUpdaterController.swift */; };
 		A10000000000000000000013 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4F6324A77E4E5A93D01C11 /* Sparkle */; };
 		A10000000000000000000015 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000016 /* LaunchAtLogin */; };
+		A1000000000000000000001B /* KidoXLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* KidoXLocalization.swift */; };
+		A1000000000000000000001D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* Localizable.xcstrings */; };
 		B9F0364C9AE5896547A90BBF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */; };
 		CCB4D327FBE48D51B880EFDB /* KidoXIPC.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */ = {isa = PBXBuildFile; fileRef = D26EF870054B45358116382D /* KidoXMinimal.icns */; };
@@ -119,6 +121,8 @@
 		80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		8CF73965B84FC0BACF4502AA /* StatusItemController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
 		8F17261BFB7F63389620898F /* DateFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DateFormatting.swift; sourceTree = "<group>"; };
+		A1000000000000000000001C /* KidoXLocalization.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXLocalization.swift; sourceTree = "<group>"; };
+		A1000000000000000000001E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDatabase.swift; sourceTree = "<group>"; };
 		9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationDirectoryMonitor.swift; sourceTree = "<group>"; };
 		A1000000000000000000001A /* ApplicationUninstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationUninstaller.swift; sourceTree = "<group>"; };
@@ -198,6 +202,7 @@
 		4B3C115D4C9F95C46E9B1A12 /* KidoX */ = {
 			isa = PBXGroup;
 			children = (
+				A1000000000000000000001E /* Localizable.xcstrings */,
 				B4F881AF6BD83DB604C679F6 /* main.swift */,
 				E534E8A09C53E9201BB1E58E /* App */,
 				0DAF930A751289665F138324 /* Models */,
@@ -236,6 +241,7 @@
 			children = (
 				8F17261BFB7F63389620898F /* DateFormatting.swift */,
 				7D4F6326A77E4E5A93D01C11 /* KidoXAppConfiguration.swift */,
+				A1000000000000000000001C /* KidoXLocalization.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -421,6 +427,8 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ja,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 4DA8146969C55BAE682CA3A2;
@@ -452,6 +460,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000001D /* Localizable.xcstrings in Resources */,
 				D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */,
 				E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */,
 			);
@@ -496,6 +505,7 @@
 				A1000000000000000000000D /* ScreenMetrics.swift in Sources */,
 				A1000000000000000000000E /* DateFormatting.swift in Sources */,
 				7D4F6325A77E4E5A93D01C11 /* KidoXAppConfiguration.swift in Sources */,
+				A1000000000000000000001B /* KidoXLocalization.swift in Sources */,
 				A10000000000000000000012 /* KidoXUpdaterController.swift in Sources */,
 				A1000000000000000000000F /* ContentView.swift in Sources */,
 				A10000000000000000000010 /* SettingsView.swift in Sources */,

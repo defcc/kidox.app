@@ -72,10 +72,7 @@ struct ApplicationScanner: Sendable {
 
         let bundle = Bundle(url: url)
         let info = bundle?.infoDictionary
-        let localizedInfo = bundle?.localizedInfoDictionary
-
-        let localizedName = localizedInfo?["CFBundleDisplayName"] as? String
-            ?? localizedInfo?["CFBundleName"] as? String
+        let localizedName = localizedApplicationName(bundle: bundle, info: info, fallbackURL: url)
             ?? info?["CFBundleDisplayName"] as? String
             ?? info?["CFBundleName"] as? String
             ?? url.deletingPathExtension().lastPathComponent
@@ -106,6 +103,71 @@ struct ApplicationScanner: Sendable {
             addedAt: addedAt
         )
     }
+
+    private static func localizedApplicationName(
+        bundle: Bundle?,
+        info: [String: Any]?,
+        fallbackURL: URL
+    ) -> String? {
+        let keys = ["CFBundleDisplayName", "CFBundleName"]
+        let selectedLanguage = KidoXLanguage.selected(
+            from: UserDefaults.standard.string(forKey: KidoXLanguage.storageKey) ?? KidoXLanguage.system.rawValue
+        )
+
+        if selectedLanguage == .system {
+            return keys.compactMap { bundle?.localizedInfoDictionary?[$0] as? String }.firstNonEmptyString
+        }
+
+        for identifier in selectedLanguage.bundleLocalizationIdentifiers {
+            if let localized = localizedInfoPlistString(in: bundle, lprojIdentifier: identifier, keys: keys) {
+                return localized
+            }
+            if let localized = localizedInfoPlistLoctableString(in: bundle, localizationIdentifier: identifier, keys: keys) {
+                return localized
+            }
+        }
+
+        return localizedNameFromFileSystem(fallbackURL)
+    }
+
+    private static func localizedInfoPlistString(
+        in bundle: Bundle?,
+        lprojIdentifier: String,
+        keys: [String]
+    ) -> String? {
+        guard
+            let url = bundle?.url(forResource: "InfoPlist", withExtension: "strings", subdirectory: nil, localization: lprojIdentifier),
+            let strings = NSDictionary(contentsOf: url) as? [String: String]
+        else {
+            return nil
+        }
+
+        return keys.compactMap { strings[$0] }.firstNonEmptyString
+    }
+
+    private static func localizedInfoPlistLoctableString(
+        in bundle: Bundle?,
+        localizationIdentifier: String,
+        keys: [String]
+    ) -> String? {
+        guard
+            let loctableURL = bundle?.url(forResource: "InfoPlist", withExtension: "loctable"),
+            let table = NSDictionary(contentsOf: loctableURL) as? [String: Any],
+            let localizedStrings = table[localizationIdentifier] as? [String: String]
+        else {
+            return nil
+        }
+
+        return keys.compactMap { localizedStrings[$0] }.firstNonEmptyString
+    }
+
+    private static func localizedNameFromFileSystem(_ url: URL) -> String? {
+        (try? url.resourceValues(forKeys: [.localizedNameKey]).localizedName)
+            .flatMap { name in
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed.replacingOccurrences(of: ".app", with: "")
+            }
+    }
 }
 
 private extension Array where Element == LaunchItem {
@@ -121,5 +183,32 @@ private extension Array where Element == LaunchItem {
         }
 
         return items
+    }
+}
+
+private extension KidoXLanguage {
+    var bundleLocalizationIdentifiers: [String] {
+        switch self {
+        case .system:
+            []
+        case .english:
+            ["en", "English"]
+        case .simplifiedChinese:
+            ["zh-Hans", "zh_CN", "zh-Hans-CN", "zh"]
+        case .japanese:
+            ["ja", "Japanese"]
+        }
+    }
+}
+
+private extension Array where Element == String {
+    var firstNonEmptyString: String? {
+        for value in self {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return nil
     }
 }

@@ -72,6 +72,10 @@ enum KidoXBackgroundStyle: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    func localizedTitle(languageRawValue: String? = nil) -> String {
+        KidoXL10n.ui(title, languageRawValue: languageRawValue)
+    }
+
     var description: String {
         switch self {
         case .wallpaper:
@@ -83,6 +87,10 @@ enum KidoXBackgroundStyle: String, CaseIterable, Identifiable, Hashable {
         case .solid:
             "Use a fixed dark background."
         }
+    }
+
+    func localizedDescription(languageRawValue: String? = nil) -> String {
+        KidoXL10n.ui(description, languageRawValue: languageRawValue)
     }
 
     var requiresPro: Bool {
@@ -208,6 +216,19 @@ private struct PageTurnAnimationRequest: Equatable {
     let targetPage: Int
 }
 
+private struct UninstallPanelSession: Identifiable {
+    enum Phase {
+        case planning
+        case confirming(ApplicationUninstallPlan)
+        case completed(ApplicationUninstallResult)
+        case failed(String)
+    }
+
+    let id = UUID()
+    let item: LaunchItem
+    var phase: Phase
+}
+
 struct KidoXBackgroundLayer: View {
     var body: some View {
         KidoXBackground()
@@ -278,10 +299,10 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
             let menu = NSMenu()
             menu.autoenablesItems = false
 
-            addItem(to: menu, title: "Open Settings", action: #selector(openSettings(_:)))
+            addItem(to: menu, title: KidoXL10n.ui("Open Settings"), action: #selector(openSettings(_:)))
             menu.addItem(.separator())
 
-            let sectionItem = NSMenuItem(title: "Sort By", action: nil, keyEquivalent: "")
+            let sectionItem = NSMenuItem(title: KidoXL10n.ui("Sort By"), action: nil, keyEquivalent: "")
             sectionItem.isEnabled = false
             menu.addItem(sectionItem)
 
@@ -297,16 +318,16 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
             menu.addItem(.separator())
             addItem(
                 to: menu,
-                title: parent.isPro ? "Purchase More License" : "Purchase Pro",
+                title: KidoXL10n.ui(parent.isPro ? "Purchase More License" : "Purchase Pro"),
                 action: #selector(purchasePro(_:))
             )
             if parent.isPro {
-                addDisabledItem(to: menu, title: "License Activated")
+                addDisabledItem(to: menu, title: KidoXL10n.ui("License Activated"))
             } else {
-                addItem(to: menu, title: "Activate License", action: #selector(activateLicense(_:)))
+                addItem(to: menu, title: KidoXL10n.ui("Activate License"), action: #selector(activateLicense(_:)))
             }
             menu.addItem(.separator())
-            addItem(to: menu, title: "Quit", action: #selector(quit(_:)))
+            addItem(to: menu, title: KidoXL10n.ui("Quit"), action: #selector(quit(_:)))
 
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 4), in: sender)
         }
@@ -324,7 +345,7 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
         }
 
         private func attributedTitle(for sort: KidoXLaunchSort) -> NSAttributedString {
-            proMenuAttributedTitle(sort.title, showsPro: !parent.isPro && sort.requiresPro)
+            proMenuAttributedTitle(KidoXL10n.ui(sort.title), showsPro: !parent.isPro && sort.requiresPro)
         }
 
         @objc private func openSettings(_ sender: NSMenuItem) {
@@ -360,6 +381,8 @@ struct KidoXForegroundLayer: View {
     let onLaunchApp: () -> Void
     let onOpenSettings: () -> Void
     let onOpenLicenseSettings: () -> Void
+    let onModalInteractionChanged: (Bool) -> Void
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage(KidoXLaunchSort.storageKey) private var launchSortRaw = KidoXLaunchSort.default.rawValue
     @AppStorage("ClyAppLicense.status") private var licenseStatus = "Free"
     @State private var searchFocused = false
@@ -401,6 +424,7 @@ struct KidoXForegroundLayer: View {
     @State private var dragEdgeEnteredAt: Date?
     @State private var dragEdgeHasTurnedInCurrentRun = false
     @State private var keyboardSelectionID: LaunchItem.ID?
+    @State private var uninstallSession: UninstallPanelSession?
 
     private let dragActivationDistance: CGFloat = 6
     private let pageTurnReleaseThreshold: CGFloat = 64
@@ -476,6 +500,21 @@ struct KidoXForegroundLayer: View {
                         .zIndex(40)
                         .allowsHitTesting(false)
                 }
+
+                if let uninstallSession {
+                    UninstallPanelRouteView(
+                        session: uninstallSession,
+                        onCancel: {
+                            setUninstallSession(nil)
+                            focusSearchField()
+                        },
+                        onConfirm: { item, plan in
+                            await performInlineUninstall(item, plan: plan)
+                        }
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.985)))
+                    .zIndex(100)
+                }
             }
             .onAppear {
                 currentSize = proxy.size
@@ -490,6 +529,9 @@ struct KidoXForegroundLayer: View {
         .ignoresSafeArea()
         .onChange(of: store.searchFocusRequestID) { _, _ in
             focusSearchField()
+        }
+        .onDisappear {
+            onModalInteractionChanged(false)
         }
         .onChange(of: store.searchQuery) { oldValue, newValue in
             let wasSearching = !oldValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -550,7 +592,7 @@ struct KidoXForegroundLayer: View {
 
             ZStack(alignment: .leading) {
                 if store.searchQuery.isEmpty && !searchTextIsComposing {
-                    Text("Search Applications")
+                    Text(KidoXL10n.string(.searchApplications, languageRawValue: appLanguageRaw))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(Color.white.opacity(0.72))
                         .allowsHitTesting(false)
@@ -583,7 +625,7 @@ struct KidoXForegroundLayer: View {
                         .foregroundStyle(.white.opacity(0.72))
                 }
                 .buttonStyle(.plain)
-                .help("Clear search")
+                .help(KidoXL10n.ui("Clear search", languageRawValue: appLanguageRaw))
             }
         }
         .padding(.horizontal, 20)
@@ -650,7 +692,7 @@ struct KidoXForegroundLayer: View {
                 )
         )
         .shadow(color: .black.opacity(0.16), radius: 9, x: 0, y: 5)
-        .help("Settings")
+        .help(KidoXL10n.string(.settings, languageRawValue: appLanguageRaw))
     }
 
     private func focusSearchField() {
@@ -1145,16 +1187,32 @@ struct KidoXForegroundLayer: View {
     private func confirmUninstall(_ item: LaunchItem) {
         guard item.kind == .application else { return }
         guard canUninstall(item) else {
-            showUninstallErrorAlert(message: "\(item.effectiveDisplayName) is a protected macOS system app and cannot be moved to Trash by KidoX.")
+            setUninstallSession(UninstallPanelSession(
+                item: item,
+                phase: .failed("\(item.effectiveDisplayName) is a protected macOS system app and cannot be moved to Trash by KidoX.")
+            ))
             return
         }
+
+        let session = UninstallPanelSession(item: item, phase: .planning)
+        setUninstallSession(session)
+        store.openFolderID = nil
+        clearSearch()
+        resetDragState()
+        resetFolderDragState()
 
         Task { @MainActor in
             do {
                 let plan = try await store.makeUninstallPlan(for: item)
-                showUninstallConfirmation(item: item, plan: plan)
+                guard uninstallSession?.id == session.id else { return }
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    uninstallSession?.phase = .confirming(plan)
+                }
             } catch {
-                showUninstallErrorAlert(message: error.localizedDescription)
+                guard uninstallSession?.id == session.id else { return }
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    uninstallSession?.phase = .failed(error.localizedDescription)
+                }
             }
         }
     }
@@ -1163,72 +1221,22 @@ struct KidoXForegroundLayer: View {
         item.kind == .application && ApplicationUninstaller.canUninstallApplication(at: item.url)
     }
 
-    private func showUninstallConfirmation(item: LaunchItem, plan: ApplicationUninstallPlan) {
-        let controller = UninstallConfirmationDialogController()
-        controller.present(item: item, plan: plan) {
-            await uninstall(item, plan: plan)
-        }
-    }
-
     @MainActor
-    private func uninstall(_ item: LaunchItem, plan: ApplicationUninstallPlan) async -> Bool {
+    private func performInlineUninstall(_ item: LaunchItem, plan: ApplicationUninstallPlan) async -> Bool {
         do {
             let outcome = try await store.uninstallApplication(item, plan: plan)
             applyPageMutationResult(outcome.pageMutationResult)
             ensureKeyboardSelectionIsValid()
-            showUninstallCompletionAlert(outcome.uninstallResult)
+            withAnimation(.easeInOut(duration: 0.16)) {
+                setUninstallSession(UninstallPanelSession(item: item, phase: .completed(outcome.uninstallResult)))
+            }
             return true
         } catch {
-            showUninstallErrorAlert(message: error.localizedDescription)
-            return false
+            withAnimation(.easeInOut(duration: 0.16)) {
+                uninstallSession?.phase = .failed(error.localizedDescription)
+            }
+            return true
         }
-    }
-
-    private func showUninstallCompletionAlert(_ result: ApplicationUninstallResult) {
-        guard result.hasDataRemovalFailures else {
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-            alert.messageText = "\(result.appURL.lastPathComponent) was uninstalled."
-            alert.informativeText = """
-            Removed \(result.removedDataTargets.count) data location\(result.removedDataTargets.count == 1 ? "" : "s").
-
-            App Data: \(formattedByteCount(result.removedDataByteCount))
-            App: \(formattedByteCount(result.appByteCount))
-            """
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-            return
-        }
-
-        let failedPaths = result.failedDataRemovals
-            .prefix(8)
-            .map { "\(formattedByteCount($0.target.byteCount))  \($0.url.path)\n\($0.errorDescription)" }
-            .joined(separator: "\n\n")
-        let omittedCount = max(result.failedDataRemovals.count - 8, 0)
-        let omittedText = omittedCount > 0 ? "\n\nAnd \(omittedCount) more." : ""
-
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "\(result.appURL.lastPathComponent) was uninstalled, but some app data could not be removed."
-        alert.informativeText = """
-        App Data: \(formattedByteCount(result.removedDataByteCount))
-        App: \(formattedByteCount(result.appByteCount))
-
-        Failed removals:
-
-        \(failedPaths)\(omittedText)
-        """
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    private func showUninstallErrorAlert(message: String) {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "Unable to uninstall app"
-        alert.informativeText = message
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
     }
 
     private func formattedByteCount(_ byteCount: Int64) -> String {
@@ -1270,6 +1278,11 @@ struct KidoXForegroundLayer: View {
     // ESC 三层语义：folder 优先关 folder，其次清搜索，最后才 dismiss panel。
     // inline rename 在自己的 field editor key monitor 中优先处理 ESC。
     private func handleEscape() {
+        if uninstallSession != nil {
+            setUninstallSession(nil)
+            focusSearchField()
+            return
+        }
         if store.openFolderID != nil {
             closeFolder()
             return
@@ -1279,6 +1292,11 @@ struct KidoXForegroundLayer: View {
             return
         }
         onDismiss()
+    }
+
+    private func setUninstallSession(_ session: UninstallPanelSession?) {
+        uninstallSession = session
+        onModalInteractionChanged(session != nil)
     }
 
     private func clearSearch() {
@@ -1725,7 +1743,7 @@ struct KidoXForegroundLayer: View {
         VStack(spacing: 12) {
             ProgressView()
                 .controlSize(.large)
-            Text("Scanning Applications")
+            Text(KidoXL10n.ui("Scanning Applications", languageRawValue: appLanguageRaw))
                 .font(.headline)
         }
         .padding(22)
@@ -1738,7 +1756,10 @@ struct KidoXForegroundLayer: View {
             Image(systemName: "square.grid.3x3")
                 .font(.system(size: 38, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text(store.searchQuery.isEmpty ? "No applications found" : "No matching apps")
+            Text(KidoXL10n.ui(
+                store.searchQuery.isEmpty ? "No applications found" : "No matching apps",
+                languageRawValue: appLanguageRaw
+            ))
                 .font(.headline)
         }
         .padding(22)
@@ -1816,7 +1837,7 @@ struct KidoXForegroundLayer: View {
 
                     ZStack(alignment: .top) {
                         if children.isEmpty {
-                            Text("No applications")
+                            Text(KidoXL10n.ui("No applications", languageRawValue: appLanguageRaw))
                                 .font(.system(size: 15, weight: .regular))
                                 .foregroundStyle(.white.opacity(0.72))
                                 .padding(.top, 74)
@@ -2903,54 +2924,251 @@ struct KidoXForegroundLayer: View {
     }
 }
 
-@MainActor
-private final class UninstallConfirmationDialogController {
-    private var window: NSWindow?
+private struct UninstallPanelRouteView: View {
+    let session: UninstallPanelSession
+    let onCancel: () -> Void
+    let onConfirm: @MainActor (LaunchItem, ApplicationUninstallPlan) async -> Bool
 
-    func present(
-        item: LaunchItem,
-        plan: ApplicationUninstallPlan,
-        onConfirm: @escaping @MainActor () async -> Bool
-    ) {
-        let view = UninstallConfirmationDialog(
-            item: item,
-            plan: plan,
-            onCancel: { [weak self] in
-                self?.close()
-            },
-            onConfirm: { [weak self] in
-                let didComplete = await onConfirm()
-                if didComplete {
-                    self?.close()
-                }
-                return didComplete
+    var body: some View {
+        GeometryReader { proxy in
+            let cardWidth = min(max(proxy.size.width * 0.40, 500), 620)
+            let confirmationHeight = min(max(proxy.size.height * 0.52, 410), 520)
+            let compactHeight = min(max(proxy.size.height * 0.36, 300), 380)
+
+            ZStack {
+                Color.black.opacity(0.10)
+
+                routeContent
+                    .padding(session.isConfirmation ? 0 : 34)
+                    .environment(\.colorScheme, .light)
+                    .frame(
+                        width: cardWidth,
+                        height: session.isConfirmation ? confirmationHeight : compactHeight
+                    )
+                    .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(.black.opacity(0.08), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.30), radius: 28, x: 0, y: 18)
             }
-        )
-
-        let hostingController = NSHostingController(rootView: view)
-        let window = NSWindow(contentViewController: hostingController)
-        window.title = "Uninstall \(item.effectiveDisplayName)"
-        window.styleMask = [.titled, .closable]
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
-        window.isReleasedWhenClosed = false
-        window.backgroundColor = .windowBackgroundColor
-        window.setContentSize(NSSize(width: 680, height: 560))
-        window.center()
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        self.window = window
-
-        NSApp.runModal(for: window)
-        self.window = nil
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
     }
 
-    private func close() {
-        guard let window else { return }
-        NSApp.stopModal()
-        window.close()
-        self.window = nil
+    @ViewBuilder
+    private var routeContent: some View {
+        switch session.phase {
+        case .planning:
+            UninstallProgressPanel(item: session.item, message: KidoXL10n.string(.scanningRelatedAppData))
+        case .confirming(let plan):
+            UninstallConfirmationDialog(
+                item: session.item,
+                plan: plan,
+                onCancel: onCancel,
+                onConfirm: {
+                    await onConfirm(session.item, plan)
+                }
+            )
+        case .completed(let result):
+            UninstallResultPanel(item: session.item, result: result, onDone: onCancel)
+        case .failed(let message):
+            UninstallFailurePanel(item: session.item, message: message, onDone: onCancel)
+        }
+    }
+}
+
+private extension UninstallPanelSession {
+    var isConfirmation: Bool {
+        if case .confirming = phase {
+            return true
+        }
+        return false
+    }
+}
+
+private struct UninstallProgressPanel: View {
+    let item: LaunchItem
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: item.sourcePath))
+                .resizable()
+                .frame(width: 60, height: 60)
+                .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 3)
+
+            VStack(spacing: 7) {
+                Text(KidoXL10n.format(.uninstallTitle, item.effectiveDisplayName))
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text(message)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+
+            ProgressView()
+                .controlSize(.small)
+        }
+    }
+}
+
+private struct UninstallResultPanel: View {
+    let item: LaunchItem
+    let result: ApplicationUninstallResult
+    let onDone: () -> Void
+
+    private var resultIconName: String {
+        result.hasDataRemovalFailures ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+    }
+
+    private var resultIconColor: Color {
+        result.hasDataRemovalFailures ? .orange : .green
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 16) {
+                Image(systemName: resultIconName)
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(resultIconColor)
+                    .frame(width: 56, height: 56)
+                    .background(resultIconColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(result.hasDataRemovalFailures
+                        ? KidoXL10n.string(.uninstalledWithIssues)
+                        : KidoXL10n.format(.uninstalledTitle, item.effectiveDisplayName)
+                    )
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Text(result.hasDataRemovalFailures
+                        ? KidoXL10n.string(.uninstalledIssuesDescription)
+                        : KidoXL10n.string(.uninstalledSuccessDescription)
+                    )
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack(spacing: 10) {
+                UninstallSummaryMetric(
+                    title: KidoXL10n.string(.appData),
+                    value: formattedByteCount(result.removedDataByteCount),
+                    symbolName: "folder"
+                )
+                UninstallSummaryMetric(
+                    title: KidoXL10n.string(.app),
+                    value: formattedByteCount(result.appByteCount),
+                    symbolName: "app"
+                )
+            }
+
+            if result.hasDataRemovalFailures {
+                failedRemovals
+            }
+
+            HStack {
+                Spacer()
+                Button(KidoXL10n.string(.done)) {
+                    onDone()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(UninstallPrimaryButtonStyle())
+            }
+        }
+    }
+
+    private var failedRemovals: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(KidoXL10n.string(.failedRemovals))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(result.failedDataRemovals.prefix(8).enumerated()), id: \.offset) { _, failure in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(failure.url.path)
+                                .font(.system(size: 11, design: .monospaced))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .textSelection(.enabled)
+                            Text(failure.errorDescription)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    let omittedCount = max(result.failedDataRemovals.count - 8, 0)
+                    if omittedCount > 0 {
+                        Text(KidoXL10n.format(.andMore, omittedCount))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+            }
+            .frame(maxHeight: 150)
+            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.separator.opacity(0.70), lineWidth: 1)
+            )
+        }
+    }
+
+    private func formattedByteCount(_ byteCount: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
+    }
+}
+
+private struct UninstallFailurePanel: View {
+    let item: LaunchItem
+    let message: String
+    let onDone: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 16) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.orange)
+                    .frame(width: 56, height: 56)
+                    .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(KidoXL10n.format(.unableToUninstall, item.effectiveDisplayName))
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button(KidoXL10n.string(.done)) {
+                    onDone()
+                }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(UninstallPrimaryButtonStyle())
+            }
+        }
     }
 }
 
@@ -2983,23 +3201,22 @@ private struct UninstallConfirmationDialog: View {
             header
 
             Divider()
-                .padding(.top, 18)
+                .padding(.top, 16)
 
             VStack(alignment: .leading, spacing: 16) {
                 summaryGrid
                 targetList
             }
             .padding(.horizontal, 24)
-            .padding(.top, 18)
+            .padding(.top, 16)
 
-            Spacer(minLength: 14)
+            Spacer(minLength: 12)
 
             Divider()
 
             bottomBar
         }
-        .frame(width: 680, height: 560)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var header: some View {
@@ -3010,12 +3227,13 @@ private struct UninstallConfirmationDialog: View {
                 .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 3)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Uninstall \(item.effectiveDisplayName)?")
+                Text(KidoXL10n.format(.uninstallQuestionTitle, item.effectiveDisplayName))
                     .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                Text("This will delete the app and its related data from this Mac.")
+                Text(KidoXL10n.string(.uninstallDescription))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -3033,23 +3251,23 @@ private struct UninstallConfirmationDialog: View {
             Spacer()
         }
         .padding(.horizontal, 24)
-        .padding(.top, 28)
+        .padding(.top, 24)
     }
 
     private var summaryGrid: some View {
         HStack(spacing: 10) {
             UninstallSummaryMetric(
-                title: "App Data",
+                title: KidoXL10n.string(.appData),
                 value: formattedByteCount(plan.dataByteCount),
                 symbolName: "folder"
             )
             UninstallSummaryMetric(
-                title: "App",
+                title: KidoXL10n.string(.app),
                 value: formattedByteCount(plan.appByteCount),
                 symbolName: "app"
             )
             UninstallSummaryMetric(
-                title: "Total",
+                title: KidoXL10n.string(.total),
                 value: formattedByteCount(plan.totalRecoverableByteCount),
                 symbolName: "sum"
             )
@@ -3059,8 +3277,9 @@ private struct UninstallConfirmationDialog: View {
     private var targetList: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
-                Text("Items")
+                Text(KidoXL10n.string(.items))
                     .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
                 Text("\(allTargets.count)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -3070,7 +3289,7 @@ private struct UninstallConfirmationDialog: View {
 
                 Spacer()
 
-                Text("\(plan.dataTargets.count) data location\(plan.dataTargets.count == 1 ? "" : "s")")
+                Text(KidoXL10n.dataLocations(plan.dataTargets.count))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -3093,7 +3312,7 @@ private struct UninstallConfirmationDialog: View {
                 }
                 .padding(.vertical, 4)
             }
-            .frame(height: 214)
+            .frame(minHeight: 210, maxHeight: 270)
             .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
@@ -3108,7 +3327,7 @@ private struct UninstallConfirmationDialog: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 26)
 
-            Text("No matching bundle-id user data found.")
+            Text(KidoXL10n.string(.noMatchingBundleData))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
@@ -3122,12 +3341,12 @@ private struct UninstallConfirmationDialog: View {
         HStack(alignment: .center, spacing: 18) {
             Spacer()
 
-            Button("Cancel") {
+            Button(KidoXL10n.string(.cancel)) {
                 onCancel()
             }
             .keyboardShortcut(.cancelAction)
             .disabled(isUninstalling)
-            .frame(width: 104)
+            .buttonStyle(UninstallSecondaryButtonStyle())
 
             Button {
                 guard !isUninstalling else { return }
@@ -3145,17 +3364,16 @@ private struct UninstallConfirmationDialog: View {
                             .controlSize(.small)
                             .scaleEffect(0.82)
                     }
-                    Text(isUninstalling ? "Uninstalling..." : "Uninstall")
+                    Text(isUninstalling ? KidoXL10n.string(.uninstalling) : KidoXL10n.string(.uninstall))
                         .frame(minWidth: 88)
                 }
             }
             .keyboardShortcut(.defaultAction)
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
+            .buttonStyle(UninstallDestructiveButtonStyle())
             .disabled(isUninstalling)
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 18)
+        .padding(.vertical, 16)
         .background(.secondary.opacity(0.035))
     }
 
@@ -3183,6 +3401,7 @@ private struct UninstallSummaryMetric: View {
                     .foregroundStyle(.secondary)
                 Text(value)
                     .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -3192,6 +3411,64 @@ private struct UninstallSummaryMetric: View {
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 70)
         .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.separator.opacity(0.24), lineWidth: 1)
+        )
+    }
+}
+
+private struct UninstallSecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.primary.opacity(configuration.isPressed ? 0.68 : 0.90))
+            .frame(width: 104, height: 32)
+            .background(.secondary.opacity(configuration.isPressed ? 0.13 : 0.10), in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(.separator.opacity(0.35), lineWidth: 1)
+            )
+    }
+}
+
+private struct UninstallPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.primary)
+            .frame(width: 112, height: 32)
+            .background(.secondary.opacity(configuration.isPressed ? 0.16 : 0.12), in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(.separator.opacity(0.35), lineWidth: 1)
+            )
+    }
+}
+
+private struct UninstallDestructiveButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(height: 32)
+            .padding(.horizontal, 16)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 1.00, green: 0.28, blue: 0.30).opacity(configuration.isPressed ? 0.78 : 0.95),
+                        Color(red: 0.86, green: 0.10, blue: 0.14).opacity(configuration.isPressed ? 0.82 : 1.00)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                in: Capsule()
+            )
+            .overlay(
+                Capsule()
+                    .stroke(.white.opacity(0.20), lineWidth: 1)
+            )
+            .shadow(color: Color.red.opacity(0.20), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -3222,6 +3499,7 @@ private struct UninstallTargetRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(target.title)
                     .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
@@ -4017,32 +4295,32 @@ private struct AppTile: View, Equatable {
 
     @ViewBuilder
     private var contextMenuContent: some View {
-        Button("Open") {
+        Button(KidoXL10n.string(.open)) {
             openAction()
         }
         if item.kind == .folder {
             if renameAction != nil {
-                Button(canRename ? "Rename" : "Rename  Pro") {
+                Button(canRename ? KidoXL10n.string(.rename) : "\(KidoXL10n.string(.rename))  Pro") {
                     beginRename()
                 }
             }
             Divider()
             if let ungroupAction {
-                Button("Ungroup Folder") {
+                Button(KidoXL10n.ui("Ungroup Folder")) {
                     ungroupAction()
                 }
             }
         } else {
             if renameAction != nil {
-                Button(canRename ? "Rename" : "Rename  Pro") {
+                Button(canRename ? KidoXL10n.string(.rename) : "\(KidoXL10n.string(.rename))  Pro") {
                     beginRename()
                 }
             }
-            Button("Show in Finder") {
+            Button(KidoXL10n.string(.showInFinder)) {
                 revealAction()
             }
             if let uninstallAction {
-                Button("Uninstall App...") {
+                Button(KidoXL10n.string(.uninstallAppEllipsis)) {
                     uninstallAction()
                 }
             }
@@ -4089,14 +4367,14 @@ private struct FolderDetailAppTile: View, Equatable {
         .buttonStyle(.plain)
         .opacity(isDragging ? 0.96 : 1)
         .contextMenu {
-            Button("Open") {
+            Button(KidoXL10n.string(.open)) {
                 openAction()
             }
-            Button("Show in Finder") {
+            Button(KidoXL10n.string(.showInFinder)) {
                 revealAction()
             }
             if let uninstallAction {
-                Button("Uninstall App...") {
+                Button(KidoXL10n.string(.uninstallAppEllipsis)) {
                     uninstallAction()
                 }
             }
@@ -5951,44 +6229,44 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        let openItem = NSMenuItem(title: "Open", action: #selector(handleContextOpen(_:)), keyEquivalent: "")
+        let openItem = NSMenuItem(title: KidoXL10n.string(.open), action: #selector(handleContextOpen(_:)), keyEquivalent: "")
         openItem.target = self
         openItem.representedObject = item
         menu.addItem(openItem)
 
         if item.kind == .folder {
-            let renameItem = NSMenuItem(title: "Rename", action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
+            let renameItem = NSMenuItem(title: KidoXL10n.string(.rename), action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
             renameItem.target = self
             renameItem.representedObject = item
-            renameItem.attributedTitle = proMenuAttributedTitle("Rename", showsPro: !isRenameEnabled)
+            renameItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.rename), showsPro: !isRenameEnabled)
             menu.addItem(renameItem)
 
             menu.addItem(.separator())
 
-            let ungroupItem = NSMenuItem(title: "Ungroup Folder", action: #selector(handleContextUngroupFolder(_:)), keyEquivalent: "")
+            let ungroupItem = NSMenuItem(title: KidoXL10n.ui("Ungroup Folder"), action: #selector(handleContextUngroupFolder(_:)), keyEquivalent: "")
             ungroupItem.target = self
             ungroupItem.representedObject = item
             menu.addItem(ungroupItem)
         } else {
-            let renameItem = NSMenuItem(title: "Rename", action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
+            let renameItem = NSMenuItem(title: KidoXL10n.string(.rename), action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
             renameItem.target = self
             renameItem.representedObject = item
-            renameItem.attributedTitle = proMenuAttributedTitle("Rename", showsPro: !isRenameEnabled)
+            renameItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.rename), showsPro: !isRenameEnabled)
             menu.addItem(renameItem)
 
-            let revealItem = NSMenuItem(title: "Show in Finder", action: #selector(handleContextReveal(_:)), keyEquivalent: "")
+            let revealItem = NSMenuItem(title: KidoXL10n.string(.showInFinder), action: #selector(handleContextReveal(_:)), keyEquivalent: "")
             revealItem.target = self
             revealItem.representedObject = item
             menu.addItem(revealItem)
 
-            let hideItem = NSMenuItem(title: "Hide App", action: #selector(handleContextHide(_:)), keyEquivalent: "")
+            let hideItem = NSMenuItem(title: KidoXL10n.string(.hideApp), action: #selector(handleContextHide(_:)), keyEquivalent: "")
             hideItem.target = self
             hideItem.representedObject = item
-            hideItem.attributedTitle = proMenuAttributedTitle("Hide App", showsPro: showsProBadges)
+            hideItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.hideApp), showsPro: showsProBadges)
             menu.addItem(hideItem)
 
             if ApplicationUninstaller.canUninstallApplication(at: item.url) {
-                let uninstallItem = NSMenuItem(title: "Uninstall App...", action: #selector(handleContextUninstall(_:)), keyEquivalent: "")
+                let uninstallItem = NSMenuItem(title: KidoXL10n.string(.uninstallAppEllipsis), action: #selector(handleContextUninstall(_:)), keyEquivalent: "")
                 uninstallItem.target = self
                 uninstallItem.representedObject = item
                 menu.addItem(uninstallItem)
