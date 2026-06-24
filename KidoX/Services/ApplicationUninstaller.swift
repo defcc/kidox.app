@@ -197,6 +197,8 @@ struct ApplicationUninstaller: Sendable {
             return try await recycleApplicationToTrash(url)
         } catch ApplicationUninstallError.trashFailed {
             return try await moveApplicationToTrashWithAdministratorPrivileges(url)
+        } catch ApplicationUninstallError.trashTimedOut {
+            return try await moveApplicationToTrashWithAdministratorPrivileges(url)
         } catch {
             throw error
         }

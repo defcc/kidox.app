@@ -457,6 +457,18 @@ final class KidoXStore {
     }
 
     @MainActor
+    func uninstallApplicationKeepingRecord(_ item: LaunchItem, plan: ApplicationUninstallPlan) async throws -> ApplicationUninstallResult {
+        try await uninstaller.uninstall(plan)
+    }
+
+    @MainActor
+    func removeUninstalledApplicationRecord(_ item: LaunchItem) -> PageMutationResult {
+        let pageMutationResult = removeApplicationRecord(matching: item)
+        database.savePages(pages)
+        return pageMutationResult
+    }
+
+    @MainActor
     func retryFailedUninstallDataRemovals(from result: ApplicationUninstallResult) async -> ApplicationUninstallResult {
         await uninstaller.retryFailedDataRemovals(from: result)
     }
