@@ -79,7 +79,7 @@ enum ApplicationUninstallError: LocalizedError {
         case .trashTimedOut(let url):
             "Moving \(url.lastPathComponent) to Trash took too long. The app may be protected by macOS or blocked by a permissions prompt."
         case .trashFailed(let url, let reason):
-            "Could not move \(url.lastPathComponent) to Trash. \(reason)"
+            KidoXL10n.uiFormat("Could not move %@ to Trash. %@", url.lastPathComponent, reason)
         }
     }
 }
@@ -176,6 +176,16 @@ struct ApplicationUninstaller: Sendable {
     }
 
     private func moveApplicationToTrash(_ url: URL) async throws -> URL? {
+        do {
+            return try await recycleApplicationToTrash(url)
+        } catch ApplicationUninstallError.trashFailed {
+            return try await moveApplicationToTrashWithAdministratorPrivileges(url)
+        } catch {
+            throw error
+        }
+    }
+
+    private func recycleApplicationToTrash(_ url: URL) async throws -> URL? {
         try await withCheckedThrowingContinuation { continuation in
             let continuationBox = TrashMoveContinuationBox(continuation)
 
@@ -195,6 +205,103 @@ struct ApplicationUninstaller: Sendable {
                 continuationBox.resume(.success(newURLs[url]))
             }
         }
+    }
+
+    private func moveApplicationToTrashWithAdministratorPrivileges(_ url: URL) async throws -> URL? {
+        let trashURL = try Self.userTrashURL()
+        let destinationURL = Self.uniqueTrashDestination(for: url, in: trashURL)
+        let command = [
+            "/bin/mkdir -p \(Self.shellQuoted(trashURL.path))",
+            "/bin/mv -n \(Self.shellQuoted(url.path)) \(Self.shellQuoted(destinationURL.path))"
+        ].joined(separator: " && ")
+
+        let source = "do shell script \(Self.appleScriptStringLiteral(command)) with administrator privileges"
+
+        var errorInfo: NSDictionary?
+        guard let script = NSAppleScript(source: source) else {
+            throw ApplicationUninstallError.trashFailed(
+                url,
+                KidoXL10n.ui("Could not create administrator permission request.")
+            )
+        }
+
+        script.executeAndReturnError(&errorInfo)
+
+        if let errorInfo {
+            if !FileManager.default.fileExists(atPath: url.path) {
+                return destinationURL
+            }
+            throw ApplicationUninstallError.trashFailed(url, Self.administratorScriptErrorDescription(errorInfo))
+        }
+
+        guard !FileManager.default.fileExists(atPath: url.path) else {
+            throw ApplicationUninstallError.trashFailed(
+                url,
+                KidoXL10n.ui("The app was not moved to Trash.")
+            )
+        }
+
+        return destinationURL
+    }
+
+    private static func userTrashURL() throws -> URL {
+        if let trashURL = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first {
+            return trashURL
+        }
+
+        let fallbackTrashURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
+        return fallbackTrashURL
+    }
+
+    private static func uniqueTrashDestination(for url: URL, in trashURL: URL) -> URL {
+        let fileManager = FileManager.default
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let pathExtension = url.pathExtension
+
+        var candidate = trashURL.appendingPathComponent(url.lastPathComponent)
+        var index = 2
+
+        while fileManager.fileExists(atPath: candidate.path) {
+            let filename = pathExtension.isEmpty ? "\(baseName) \(index)" : "\(baseName) \(index).\(pathExtension)"
+            candidate = trashURL.appendingPathComponent(filename)
+            index += 1
+        }
+
+        return candidate
+    }
+
+    private static func shellQuoted(_ string: String) -> String {
+        "'\(string.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
+    }
+
+    private static func appleScriptStringLiteral(_ string: String) -> String {
+        let escaped = string
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    private static func administratorScriptErrorDescription(_ errorInfo: NSDictionary) -> String {
+        if let number = errorInfo[NSAppleScript.errorNumber] as? Int, number == -128 {
+            return KidoXL10n.ui("Administrator permission was cancelled.")
+        }
+
+        let message = [
+            errorInfo[NSAppleScript.errorMessage] as? String,
+            errorInfo[NSAppleScript.errorBriefMessage] as? String
+        ]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+
+        if let message {
+            return message
+        }
+
+        if let number = errorInfo[NSAppleScript.errorNumber] {
+            return KidoXL10n.uiFormat("Administrator permission request failed with error %@.", String(describing: number))
+        }
+
+        return KidoXL10n.ui("Administrator permission request failed.")
     }
 
     private static func normalizedBundleIdentifier(from item: LaunchItem) throws -> String {
