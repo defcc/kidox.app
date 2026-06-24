@@ -220,6 +220,7 @@ private struct UninstallPanelSession: Identifiable {
     enum Phase {
         case planning
         case confirming(ApplicationUninstallPlan)
+        case uninstalling(ApplicationUninstallPlan)
         case completed(ApplicationUninstallResult)
         case failed(String)
     }
@@ -510,6 +511,12 @@ struct KidoXForegroundLayer: View {
                         },
                         onConfirm: { item, plan in
                             await performInlineUninstall(item, plan: plan)
+                        },
+                        onRetryFailedItems: { result in
+                            await retryFailedUninstallDataRemovals(result)
+                        },
+                        onOpenPrivacySettings: {
+                            openAppDataPrivacySettings()
                         }
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.985)))
@@ -1205,14 +1212,10 @@ struct KidoXForegroundLayer: View {
             do {
                 let plan = try await store.makeUninstallPlan(for: item)
                 guard uninstallSession?.id == session.id else { return }
-                withAnimation(.easeInOut(duration: 0.16)) {
-                    uninstallSession?.phase = .confirming(plan)
-                }
+                uninstallSession?.phase = .confirming(plan)
             } catch {
                 guard uninstallSession?.id == session.id else { return }
-                withAnimation(.easeInOut(duration: 0.16)) {
-                    uninstallSession?.phase = .failed(error.localizedDescription)
-                }
+                uninstallSession?.phase = .failed(error.localizedDescription)
             }
         }
     }
@@ -1223,19 +1226,36 @@ struct KidoXForegroundLayer: View {
 
     @MainActor
     private func performInlineUninstall(_ item: LaunchItem, plan: ApplicationUninstallPlan) async -> Bool {
+        uninstallSession?.phase = .uninstalling(plan)
+
         do {
             let outcome = try await store.uninstallApplication(item, plan: plan)
             applyPageMutationResult(outcome.pageMutationResult)
             ensureKeyboardSelectionIsValid()
-            withAnimation(.easeInOut(duration: 0.16)) {
-                setUninstallSession(UninstallPanelSession(item: item, phase: .completed(outcome.uninstallResult)))
-            }
+            setUninstallSession(UninstallPanelSession(item: item, phase: .completed(outcome.uninstallResult)))
             return true
         } catch {
-            withAnimation(.easeInOut(duration: 0.16)) {
-                uninstallSession?.phase = .failed(error.localizedDescription)
-            }
+            uninstallSession?.phase = .failed(error.localizedDescription)
             return true
+        }
+    }
+
+    @MainActor
+    private func retryFailedUninstallDataRemovals(_ result: ApplicationUninstallResult) async -> Bool {
+        let updatedResult = await store.retryFailedUninstallDataRemovals(from: result)
+        uninstallSession?.phase = .completed(updatedResult)
+        return true
+    }
+
+    private func openAppDataPrivacySettings() {
+        let candidateURLs = [
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension")
+        ]
+
+        if let url = candidateURLs.compactMap({ $0 }).first {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -2928,26 +2948,27 @@ private struct UninstallPanelRouteView: View {
     let session: UninstallPanelSession
     let onCancel: () -> Void
     let onConfirm: @MainActor (LaunchItem, ApplicationUninstallPlan) async -> Bool
+    let onRetryFailedItems: @MainActor (ApplicationUninstallResult) async -> Bool
+    let onOpenPrivacySettings: () -> Void
 
     var body: some View {
         GeometryReader { proxy in
-            let cardWidth = min(max(proxy.size.width * 0.40, 500), 620)
-            let confirmationHeight = min(max(proxy.size.height * 0.52, 410), 520)
-            let compactHeight = min(max(proxy.size.height * 0.36, 300), 380)
+            let cardWidth = min(max(proxy.size.width * 0.40, 560), 640)
+            let cardHeight = min(max(proxy.size.height * 0.56, 540), 580)
 
             ZStack {
                 Color.black.opacity(0.10)
 
                 routeContent
-                    .padding(session.isConfirmation ? 0 : 34)
                     .environment(\.colorScheme, .light)
-                    .frame(
-                        width: cardWidth,
-                        height: session.isConfirmation ? confirmationHeight : compactHeight
-                    )
-                    .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+                    .transaction { transaction in
+                        transaction.disablesAnimations = true
+                        transaction.animation = nil
+                    }
+                    .frame(width: cardWidth, height: cardHeight)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14)
+                        RoundedRectangle(cornerRadius: 16)
                             .stroke(.black.opacity(0.08), lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.30), radius: 28, x: 0, y: 18)
@@ -2972,20 +2993,21 @@ private struct UninstallPanelRouteView: View {
                     await onConfirm(session.item, plan)
                 }
             )
+        case .uninstalling:
+            UninstallProgressPanel(item: session.item, message: KidoXL10n.string(.uninstalling))
         case .completed(let result):
-            UninstallResultPanel(item: session.item, result: result, onDone: onCancel)
+            UninstallResultPanel(
+                item: session.item,
+                result: result,
+                onDone: onCancel,
+                onRetryFailedItems: {
+                    await onRetryFailedItems(result)
+                },
+                onOpenPrivacySettings: onOpenPrivacySettings
+            )
         case .failed(let message):
             UninstallFailurePanel(item: session.item, message: message, onDone: onCancel)
         }
-    }
-}
-
-private extension UninstallPanelSession {
-    var isConfirmation: Bool {
-        if case .confirming = phase {
-            return true
-        }
-        return false
     }
 }
 
@@ -2994,27 +3016,35 @@ private struct UninstallProgressPanel: View {
     let message: String
 
     var body: some View {
-        VStack(spacing: 18) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: item.sourcePath))
-                .resizable()
-                .frame(width: 60, height: 60)
-                .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 3)
+        VStack(spacing: 0) {
+            Spacer()
 
-            VStack(spacing: 7) {
-                Text(KidoXL10n.format(.uninstallTitle, item.effectiveDisplayName))
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+            VStack(spacing: 18) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: item.sourcePath))
+                    .resizable()
+                    .frame(width: 64, height: 64)
+                    .shadow(color: .black.opacity(0.16), radius: 8, x: 0, y: 3)
 
-                Text(message)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 7) {
+                    Text(KidoXL10n.format(.uninstallTitle, item.effectiveDisplayName))
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressView()
+                    .controlSize(.small)
             }
+            .padding(.horizontal, 42)
 
-            ProgressView()
-                .controlSize(.small)
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -3022,6 +3052,10 @@ private struct UninstallResultPanel: View {
     let item: LaunchItem
     let result: ApplicationUninstallResult
     let onDone: () -> Void
+    let onRetryFailedItems: @MainActor () async -> Bool
+    let onOpenPrivacySettings: () -> Void
+
+    @State private var isRetrying = false
 
     private var resultIconName: String {
         result.hasDataRemovalFailures ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
@@ -3031,67 +3065,152 @@ private struct UninstallResultPanel: View {
         result.hasDataRemovalFailures ? .orange : .green
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 16) {
-                Image(systemName: resultIconName)
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(resultIconColor)
-                    .frame(width: 56, height: 56)
-                    .background(resultIconColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(result.hasDataRemovalFailures
-                        ? KidoXL10n.string(.uninstalledWithIssues)
-                        : KidoXL10n.format(.uninstalledTitle, item.effectiveDisplayName)
-                    )
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    Text(result.hasDataRemovalFailures
-                        ? KidoXL10n.string(.uninstalledIssuesDescription)
-                        : KidoXL10n.string(.uninstalledSuccessDescription)
-                    )
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                }
-            }
-
-            HStack(spacing: 10) {
-                UninstallSummaryMetric(
-                    title: KidoXL10n.string(.appData),
-                    value: formattedByteCount(result.removedDataByteCount),
-                    symbolName: "folder"
-                )
-                UninstallSummaryMetric(
-                    title: KidoXL10n.string(.app),
-                    value: formattedByteCount(result.appByteCount),
-                    symbolName: "app"
-                )
-            }
-
-            if result.hasDataRemovalFailures {
-                failedRemovals
-            }
-
-            HStack {
-                Spacer()
-                Button(KidoXL10n.string(.done)) {
-                    onDone()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(UninstallPrimaryButtonStyle())
-            }
+    private var hasAppDataPermissionFailures: Bool {
+        result.failedDataRemovals.contains { failure in
+            Self.isAppDataContainerURL(failure.url)
         }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, 28)
+                .padding(.top, 28)
+
+            Divider()
+                .padding(.top, 22)
+
+            VStack(alignment: .leading, spacing: 14) {
+                summaryGrid
+
+                if hasAppDataPermissionFailures {
+                    appDataPermissionNotice
+                }
+
+                if result.hasDataRemovalFailures {
+                    failedRemovals
+                } else {
+                    successMessage
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, 18)
+
+            Spacer(minLength: 12)
+
+            Divider()
+
+            bottomBar
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var header: some View {
+        HStack(spacing: 16) {
+            Image(systemName: resultIconName)
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundStyle(resultIconColor)
+                .frame(width: 56, height: 56)
+                .background(resultIconColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(result.hasDataRemovalFailures
+                    ? KidoXL10n.string(.uninstalledWithIssues)
+                    : KidoXL10n.format(.uninstalledTitle, item.effectiveDisplayName)
+                )
+                    .font(.system(size: 23, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text(result.hasDataRemovalFailures
+                    ? KidoXL10n.string(.uninstalledIssuesDescription)
+                    : KidoXL10n.string(.uninstalledSuccessDescription)
+                )
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var summaryGrid: some View {
+        HStack(spacing: 10) {
+            UninstallSummaryMetric(
+                title: KidoXL10n.string(.appData),
+                value: formattedByteCount(result.removedDataByteCount),
+                symbolName: "folder"
+            )
+            UninstallSummaryMetric(
+                title: KidoXL10n.string(.app),
+                value: formattedByteCount(result.appByteCount),
+                symbolName: "app"
+            )
+        }
+    }
+
+    private var appDataPermissionNotice: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "hand.raised.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 24, height: 24)
+                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(KidoXL10n.string(.appDataPermissionRequired))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(KidoXL10n.string(.appDataPermissionDescription))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.orange.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private var successMessage: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(KidoXL10n.string(.items))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text(KidoXL10n.string(.uninstalledSuccessDescription))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+        .padding(12)
+        .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(.separator.opacity(0.70), lineWidth: 1)
+        )
     }
 
     private var failedRemovals: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(KidoXL10n.string(.failedRemovals))
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.primary)
+            HStack {
+                Text(KidoXL10n.string(.failedRemovals))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("\(result.failedDataRemovals.count)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(.secondary.opacity(0.12), in: Capsule())
+                Spacer()
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
@@ -3127,8 +3246,58 @@ private struct UninstallResultPanel: View {
         }
     }
 
+    private var bottomBar: some View {
+        HStack(spacing: 12) {
+            if result.hasDataRemovalFailures {
+                if hasAppDataPermissionFailures {
+                    Button(KidoXL10n.string(.openPrivacySettings)) {
+                        onOpenPrivacySettings()
+                    }
+                    .buttonStyle(UninstallSecondaryButtonStyle(width: 150))
+                }
+
+                Button {
+                    guard !isRetrying else { return }
+                    isRetrying = true
+                    Task { @MainActor in
+                        _ = await onRetryFailedItems()
+                        isRetrying = false
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isRetrying {
+                            ProgressView()
+                                .controlSize(.small)
+                                .scaleEffect(0.82)
+                        }
+                        Text(isRetrying ? KidoXL10n.string(.retrying) : KidoXL10n.string(.retryFailedItems))
+                            .frame(minWidth: 112)
+                    }
+                }
+                .buttonStyle(UninstallPrimaryButtonStyle(width: 150))
+                .disabled(isRetrying)
+            }
+
+            Spacer()
+
+            Button(KidoXL10n.string(.done)) {
+                onDone()
+            }
+            .keyboardShortcut(.defaultAction)
+            .buttonStyle(UninstallPrimaryButtonStyle())
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
+        .background(.secondary.opacity(0.035))
+    }
+
     private func formattedByteCount(_ byteCount: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
+    }
+
+    private static func isAppDataContainerURL(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        return path.contains("/Library/Containers/") || path.contains("/Library/Group Containers/")
     }
 }
 
@@ -3138,37 +3307,74 @@ private struct UninstallFailurePanel: View {
     let onDone: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(spacing: 0) {
             HStack(spacing: 16) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(.orange)
-                    .frame(width: 56, height: 56)
-                    .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(KidoXL10n.format(.unableToUninstall, item.effectiveDisplayName))
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-
-                    Text(message)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                statusIcon
+                headerText
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, 28)
+            .padding(.top, 28)
+
+            Divider()
+                .padding(.top, 22)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, minHeight: 180, alignment: .topLeading)
+            .padding(12)
+            .background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.separator.opacity(0.70), lineWidth: 1)
+            )
+            .padding(.horizontal, 28)
+            .padding(.top, 18)
+
+            Spacer(minLength: 12)
+
+            Divider()
 
             HStack {
                 Spacer()
-                Button(KidoXL10n.string(.done)) {
-                    onDone()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(UninstallPrimaryButtonStyle())
+                doneButton
             }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 16)
+            .background(.secondary.opacity(0.035))
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var statusIcon: some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: 32, weight: .semibold))
+            .foregroundStyle(.orange)
+            .frame(width: 56, height: 56)
+            .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var headerText: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(KidoXL10n.format(.unableToUninstall, item.effectiveDisplayName))
+                .font(.system(size: 23, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+    }
+
+    private var doneButton: some View {
+        Button(KidoXL10n.string(.done)) {
+            onDone()
+        }
+        .keyboardShortcut(.defaultAction)
+        .buttonStyle(UninstallPrimaryButtonStyle())
     }
 }
 
@@ -3185,15 +3391,21 @@ private struct UninstallConfirmationDialog: View {
             title: item.effectiveDisplayName,
             subtitle: plan.appURL.path,
             byteCount: plan.appByteCount,
-            kind: .application
+            kind: .application,
+            requiresAppDataPermission: false
         )] + plan.dataTargets.map {
             UninstallDisplayTarget(
                 title: $0.url.lastPathComponent,
                 subtitle: $0.url.path,
                 byteCount: $0.byteCount,
-                kind: .data
+                kind: .data,
+                requiresAppDataPermission: Self.isAppDataContainerURL($0.url)
             )
         }
+    }
+
+    private var hasAppDataPermissionTargets: Bool {
+        plan.dataTargets.contains { Self.isAppDataContainerURL($0.url) }
     }
 
     var body: some View {
@@ -3205,6 +3417,9 @@ private struct UninstallConfirmationDialog: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 summaryGrid
+                if hasAppDataPermissionTargets {
+                    permissionNotice
+                }
                 targetList
             }
             .padding(.horizontal, 24)
@@ -3272,6 +3487,26 @@ private struct UninstallConfirmationDialog: View {
                 symbolName: "sum"
             )
         }
+    }
+
+    private var permissionNotice: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "hand.raised.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 22, height: 22)
+                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+
+            Text(KidoXL10n.string(.mayRequireAppDataPermission))
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.orange.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var targetList: some View {
@@ -3380,6 +3615,11 @@ private struct UninstallConfirmationDialog: View {
     private func formattedByteCount(_ byteCount: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
     }
+
+    private static func isAppDataContainerURL(_ url: URL) -> Bool {
+        let path = url.standardizedFileURL.path
+        return path.contains("/Library/Containers/") || path.contains("/Library/Group Containers/")
+    }
 }
 
 private struct UninstallSummaryMetric: View {
@@ -3419,11 +3659,13 @@ private struct UninstallSummaryMetric: View {
 }
 
 private struct UninstallSecondaryButtonStyle: ButtonStyle {
+    var width: CGFloat = 104
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.primary.opacity(configuration.isPressed ? 0.68 : 0.90))
-            .frame(width: 104, height: 32)
+            .frame(width: width, height: 32)
             .background(.secondary.opacity(configuration.isPressed ? 0.13 : 0.10), in: Capsule())
             .overlay(
                 Capsule()
@@ -3433,11 +3675,13 @@ private struct UninstallSecondaryButtonStyle: ButtonStyle {
 }
 
 private struct UninstallPrimaryButtonStyle: ButtonStyle {
+    var width: CGFloat = 112
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.primary)
-            .frame(width: 112, height: 32)
+            .frame(width: width, height: 32)
             .background(.secondary.opacity(configuration.isPressed ? 0.16 : 0.12), in: Capsule())
             .overlay(
                 Capsule()
@@ -3482,6 +3726,7 @@ private struct UninstallDisplayTarget: Identifiable {
     let subtitle: String
     let byteCount: Int64
     let kind: Kind
+    let requiresAppDataPermission: Bool
 
     var id: String {
         "\(kind)-\(subtitle)"
@@ -3497,11 +3742,22 @@ private struct UninstallTargetRow: View {
                 .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(target.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    Text(target.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    if target.requiresAppDataPermission {
+                        Text(KidoXL10n.string(.requiresPermission))
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(.orange.opacity(0.10), in: Capsule())
+                    }
+                }
 
                 Text(target.subtitle)
                     .font(.system(size: 11, design: .monospaced))

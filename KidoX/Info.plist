@@ -24,6 +24,8 @@
   <string>15.0</string>
   <key>LSUIElement</key>
   <true/>
+  <key>NSAppDataUsageDescription</key>
+  <string>KidoX needs access to app sandbox containers so it can remove related app data during uninstall.</string>
   <key>UTExportedTypeDeclarations</key>
   <array>
     <dict>

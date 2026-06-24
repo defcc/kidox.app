@@ -456,6 +456,11 @@ final class KidoXStore {
         )
     }
 
+    @MainActor
+    func retryFailedUninstallDataRemovals(from result: ApplicationUninstallResult) async -> ApplicationUninstallResult {
+        await uninstaller.retryFailedDataRemovals(from: result)
+    }
+
     // MARK: - Reorder / Folder mutations
 
     @discardableResult

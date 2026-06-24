@@ -162,6 +162,8 @@ struct ApplicationUninstaller: Sendable {
             throw ApplicationUninstallError.missingApplication(plan.appURL)
         }
 
+        await Self.prepareAppDataAccessIfNeeded(for: plan.dataTargets)
+
         let trashedAppURL = try await moveApplicationToTrash(plan.appURL)
         let dataRemoval = await Self.removeUserData(targets: plan.dataTargets)
 
@@ -171,6 +173,21 @@ struct ApplicationUninstaller: Sendable {
             appByteCount: plan.appByteCount,
             trashedAppURL: trashedAppURL,
             removedDataTargets: dataRemoval.removed,
+            failedDataRemovals: dataRemoval.failed
+        )
+    }
+
+    func retryFailedDataRemovals(from result: ApplicationUninstallResult) async -> ApplicationUninstallResult {
+        let targets = result.failedDataRemovals.map(\.target)
+        guard !targets.isEmpty else { return result }
+
+        let dataRemoval = await Self.removeUserData(targets: targets)
+        return ApplicationUninstallResult(
+            bundleIdentifier: result.bundleIdentifier,
+            appURL: result.appURL,
+            appByteCount: result.appByteCount,
+            trashedAppURL: result.trashedAppURL,
+            removedDataTargets: result.removedDataTargets + dataRemoval.removed,
             failedDataRemovals: dataRemoval.failed
         )
     }
@@ -328,6 +345,8 @@ struct ApplicationUninstaller: Sendable {
             var failed: [ApplicationUninstallResult.RemovalFailure] = []
             let fileManager = FileManager.default
 
+            Self.prepareAppDataAccessIfNeeded(for: targets, fileManager: fileManager)
+
             for target in targets {
                 let url = target.url
                 guard fileManager.fileExists(atPath: url.path) else { continue }
@@ -345,6 +364,52 @@ struct ApplicationUninstaller: Sendable {
 
             return (removed, failed)
         }.value
+    }
+
+    private static func prepareAppDataAccessIfNeeded(for targets: [ApplicationUninstallTarget]) async {
+        let appDataTargets = targets.filter { isAppDataContainerURL($0.url) }
+        guard !appDataTargets.isEmpty else { return }
+
+        await Task.detached(priority: .userInitiated) {
+            Self.prepareAppDataAccessIfNeeded(
+                for: appDataTargets,
+                fileManager: FileManager.default
+            )
+        }.value
+    }
+
+    private static func prepareAppDataAccessIfNeeded(
+        for targets: [ApplicationUninstallTarget],
+        fileManager: FileManager
+    ) {
+        for target in targets where isAppDataContainerURL(target.url) {
+            triggerAppDataAccessPrompt(at: target.url, fileManager: fileManager)
+        }
+    }
+
+    private static func triggerAppDataAccessPrompt(at url: URL, fileManager: FileManager) {
+        let probeURLs = [
+            url,
+            url.appendingPathComponent("Data", isDirectory: true),
+            url.appendingPathComponent("Data/Library", isDirectory: true)
+        ]
+
+        for probeURL in probeURLs where fileManager.fileExists(atPath: probeURL.path) {
+            if (try? fileManager.contentsOfDirectory(
+                at: probeURL,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: []
+            )) != nil {
+                return
+            }
+        }
+    }
+
+    private static func isAppDataContainerURL(_ url: URL) -> Bool {
+        let homePath = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        return path.hasPrefix("\(homePath)/Library/Containers/")
+            || path.hasPrefix("\(homePath)/Library/Group Containers/")
     }
 
     private static func uninstallMetadata(

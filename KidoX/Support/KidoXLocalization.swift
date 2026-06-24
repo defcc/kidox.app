@@ -75,6 +75,13 @@ enum KidoXL10nKey: String {
     case uninstalledSuccessDescription = "The app and confirmed user data were removed from this Mac."
     case uninstalledIssuesDescription = "The app was removed, but some app data could not be deleted."
     case failedRemovals = "Failed removals"
+    case appDataPermissionRequired = "Full Disk Access required"
+    case appDataPermissionDescription = "Allow KidoX in Privacy & Security > Full Disk Access, then retry these sandbox data items."
+    case mayRequireAppDataPermission = "Some sandbox data may require Full Disk Access."
+    case requiresPermission = "Requires Permission"
+    case openPrivacySettings = "Open Full Disk Access"
+    case retryFailedItems = "Retry Failed Items"
+    case retrying = "Retrying..."
     case andMore = "And %d more."
     case unableToUninstall = "Unable to uninstall %@"
 }

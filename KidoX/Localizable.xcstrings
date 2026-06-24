@@ -1024,6 +1024,227 @@
         }
       }
     },
+    "App Data permission required" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appデータの権限が必要です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要 App 数据权限"
+          }
+        }
+      }
+    },
+    "Full Disk Access required" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセスが必要です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要完全磁盘访问权限"
+          }
+        }
+      }
+    },
+    "KidoX needs permission to access data from other apps before it can remove sandbox app data." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンドボックス化されたAppデータを削除するには、KidoXにほかのAppのデータへアクセスする権限が必要です。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX 需要访问其他 App 数据的权限，才能删除这些沙盒 App 数据。"
+          }
+        }
+      }
+    },
+    "Allow KidoX in Privacy & Security > Full Disk Access, then retry these sandbox data items." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「プライバシーとセキュリティ」>「フルディスクアクセス」でKidoXを許可してから、これらのサンドボックスデータ項目を再試行してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在“隐私与安全性”>“完全磁盘访问权限”中允许 KidoX，然后重试这些沙盒数据项。"
+          }
+        }
+      }
+    },
+    "Allow KidoX in Privacy & Security > App Management, then retry these sandbox data items." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「プライバシーとセキュリティ」>「App管理」でKidoXを許可してから、これらのサンドボックスデータ項目を再試行してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在“隐私与安全性”>“应用管理”中允许 KidoX，然后重试这些沙盒数据项。"
+          }
+        }
+      }
+    },
+    "Some sandbox data may require Full Disk Access." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のサンドボックスデータにはフルディスクアクセスが必要な場合があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分沙盒数据可能需要完全磁盘访问权限。"
+          }
+        }
+      }
+    },
+    "Some sandbox data may require App Data permission." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のサンドボックスデータにはAppデータの権限が必要な場合があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分沙盒数据可能需要 App 数据权限。"
+          }
+        }
+      }
+    },
+    "Requires Permission" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "権限が必要"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要权限"
+          }
+        }
+      }
+    },
+    "Open Full Disk Access" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセスを開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开完全磁盘访问权限"
+          }
+        }
+      }
+    },
+    "Open App Management" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App管理を開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开应用管理"
+          }
+        }
+      }
+    },
+    "Open Privacy Settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシー設定を開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开隐私设置"
+          }
+        }
+      }
+    },
+    "Retry Failed Items" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失敗した項目を再試行"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试失败项"
+          }
+        }
+      }
+    },
+    "Retrying..." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行中..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重试..."
+          }
+        }
+      }
+    },
     "General" : {
       "extractionState" : "stale",
       "localizations" : {
