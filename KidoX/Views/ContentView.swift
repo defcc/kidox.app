@@ -1206,8 +1206,6 @@ struct KidoXForegroundLayer: View {
 
         let session = UninstallPanelSession(item: item, phase: .planning)
         setUninstallSession(session)
-        store.openFolderID = nil
-        clearSearch()
         resetDragState()
         resetFolderDragState()
 
