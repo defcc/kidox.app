@@ -1160,6 +1160,23 @@
         }
       }
     },
+    "Grant Permission" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "権限を付与"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授权"
+          }
+        }
+      }
+    },
     "Open Full Disk Access" : {
       "extractionState" : "stale",
       "localizations" : {

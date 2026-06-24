@@ -426,6 +426,7 @@ struct KidoXForegroundLayer: View {
     @State private var dragEdgeHasTurnedInCurrentRun = false
     @State private var keyboardSelectionID: LaunchItem.ID?
     @State private var uninstallSession: UninstallPanelSession?
+    @State private var hasFullDiskAccess = Self.detectFullDiskAccess()
 
     private let dragActivationDistance: CGFloat = 6
     private let pageTurnReleaseThreshold: CGFloat = 64
@@ -505,6 +506,7 @@ struct KidoXForegroundLayer: View {
                 if let uninstallSession {
                     UninstallPanelRouteView(
                         session: uninstallSession,
+                        hasFullDiskAccess: hasFullDiskAccess,
                         onCancel: {
                             setUninstallSession(nil)
                             focusSearchField()
@@ -1193,6 +1195,7 @@ struct KidoXForegroundLayer: View {
 
     private func confirmUninstall(_ item: LaunchItem) {
         guard item.kind == .application else { return }
+        hasFullDiskAccess = Self.detectFullDiskAccess()
         guard canUninstall(item) else {
             setUninstallSession(UninstallPanelSession(
                 item: item,
@@ -1257,6 +1260,30 @@ struct KidoXForegroundLayer: View {
         if let url = candidateURLs.compactMap({ $0 }).first {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    private static func detectFullDiskAccess() -> Bool {
+        let fileManager = FileManager.default
+        let libraryURL = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first
+        let probeURLs = [
+            libraryURL?.appendingPathComponent("Mail", isDirectory: true),
+            libraryURL?.appendingPathComponent("Messages", isDirectory: true),
+            libraryURL?.appendingPathComponent("Safari", isDirectory: true)
+        ].compactMap { $0 }
+
+        var testedProtectedLocation = false
+        for url in probeURLs where fileManager.fileExists(atPath: url.path) {
+            testedProtectedLocation = true
+            if (try? fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) != nil {
+                return true
+            }
+        }
+
+        return !testedProtectedLocation
     }
 
     private func formattedByteCount(_ byteCount: Int64) -> String {
@@ -2946,6 +2973,7 @@ struct KidoXForegroundLayer: View {
 
 private struct UninstallPanelRouteView: View {
     let session: UninstallPanelSession
+    let hasFullDiskAccess: Bool
     let onCancel: () -> Void
     let onConfirm: @MainActor (LaunchItem, ApplicationUninstallPlan) async -> Bool
     let onRetryFailedItems: @MainActor (ApplicationUninstallResult) async -> Bool
@@ -2988,10 +3016,12 @@ private struct UninstallPanelRouteView: View {
             UninstallConfirmationDialog(
                 item: session.item,
                 plan: plan,
+                hasFullDiskAccess: hasFullDiskAccess,
                 onCancel: onCancel,
                 onConfirm: {
                     await onConfirm(session.item, plan)
-                }
+                },
+                onOpenPrivacySettings: onOpenPrivacySettings
             )
         case .uninstalling:
             UninstallProgressPanel(item: session.item, message: KidoXL10n.string(.uninstalling))
@@ -2999,6 +3029,7 @@ private struct UninstallPanelRouteView: View {
             UninstallResultPanel(
                 item: session.item,
                 result: result,
+                hasFullDiskAccess: hasFullDiskAccess,
                 onDone: onCancel,
                 onRetryFailedItems: {
                     await onRetryFailedItems(result)
@@ -3051,6 +3082,7 @@ private struct UninstallProgressPanel: View {
 private struct UninstallResultPanel: View {
     let item: LaunchItem
     let result: ApplicationUninstallResult
+    let hasFullDiskAccess: Bool
     let onDone: () -> Void
     let onRetryFailedItems: @MainActor () async -> Bool
     let onOpenPrivacySettings: () -> Void
@@ -3083,7 +3115,7 @@ private struct UninstallResultPanel: View {
             VStack(alignment: .leading, spacing: 14) {
                 summaryGrid
 
-                if hasAppDataPermissionFailures {
+                if hasAppDataPermissionFailures && !hasFullDiskAccess {
                     appDataPermissionNotice
                 }
 
@@ -3249,7 +3281,7 @@ private struct UninstallResultPanel: View {
     private var bottomBar: some View {
         HStack(spacing: 12) {
             if result.hasDataRemovalFailures {
-                if hasAppDataPermissionFailures {
+                if hasAppDataPermissionFailures && !hasFullDiskAccess {
                     Button(KidoXL10n.string(.openPrivacySettings)) {
                         onOpenPrivacySettings()
                     }
@@ -3381,8 +3413,10 @@ private struct UninstallFailurePanel: View {
 private struct UninstallConfirmationDialog: View {
     let item: LaunchItem
     let plan: ApplicationUninstallPlan
+    let hasFullDiskAccess: Bool
     let onCancel: () -> Void
     let onConfirm: @MainActor () async -> Bool
+    let onOpenPrivacySettings: () -> Void
 
     @State private var isUninstalling = false
 
@@ -3399,13 +3433,13 @@ private struct UninstallConfirmationDialog: View {
                 subtitle: $0.url.path,
                 byteCount: $0.byteCount,
                 kind: .data,
-                requiresAppDataPermission: Self.isAppDataContainerURL($0.url)
+                requiresAppDataPermission: Self.isAppDataContainerURL($0.url) && !hasFullDiskAccess
             )
         }
     }
 
-    private var hasAppDataPermissionTargets: Bool {
-        plan.dataTargets.contains { Self.isAppDataContainerURL($0.url) }
+    private var needsFullDiskAccess: Bool {
+        !hasFullDiskAccess && plan.dataTargets.contains { Self.isAppDataContainerURL($0.url) }
     }
 
     var body: some View {
@@ -3417,7 +3451,7 @@ private struct UninstallConfirmationDialog: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 summaryGrid
-                if hasAppDataPermissionTargets {
+                if needsFullDiskAccess {
                     permissionNotice
                 }
                 targetList
@@ -3503,6 +3537,11 @@ private struct UninstallConfirmationDialog: View {
                 .lineLimit(1)
 
             Spacer(minLength: 0)
+
+            Button(KidoXL10n.string(.grantPermission)) {
+                onOpenPrivacySettings()
+            }
+            .buttonStyle(UninstallPermissionButtonStyle())
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -3686,6 +3725,21 @@ private struct UninstallPrimaryButtonStyle: ButtonStyle {
             .overlay(
                 Capsule()
                     .stroke(.separator.opacity(0.35), lineWidth: 1)
+            )
+    }
+}
+
+private struct UninstallPermissionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.orange.opacity(configuration.isPressed ? 0.75 : 1.0))
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(.orange.opacity(configuration.isPressed ? 0.16 : 0.10), in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(.orange.opacity(0.20), lineWidth: 1)
             )
     }
 }
