@@ -17,6 +17,7 @@ struct LaunchItem: Identifiable, Hashable, Codable {
     var url: URL
     var bundleIdentifier: String?
     var bundleName: String?
+    var applicationCategory: String?
     var version: String?
     var customDisplayName: String?
     var sourcePath: String
@@ -35,6 +36,7 @@ struct LaunchItem: Identifiable, Hashable, Codable {
         url: URL,
         bundleIdentifier: String? = nil,
         bundleName: String? = nil,
+        applicationCategory: String? = nil,
         version: String? = nil,
         customDisplayName: String? = nil,
         sourcePath: String,
@@ -52,6 +54,7 @@ struct LaunchItem: Identifiable, Hashable, Codable {
         self.url = url
         self.bundleIdentifier = bundleIdentifier
         self.bundleName = bundleName
+        self.applicationCategory = applicationCategory
         self.version = version
         self.customDisplayName = customDisplayName
         self.sourcePath = sourcePath
@@ -74,6 +77,7 @@ struct LaunchItem: Identifiable, Hashable, Codable {
             subtitle,
             bundleIdentifier,
             bundleName,
+            applicationCategory,
             sourcePath
         ]
         .compactMap { $0 }

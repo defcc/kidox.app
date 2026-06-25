@@ -1064,6 +1064,7 @@ private struct HiddenAppsPane: View {
                 pages[pageIndex].items[itemIndex].url = selectedItem.url
                 pages[pageIndex].items[itemIndex].bundleIdentifier = selectedItem.bundleIdentifier
                 pages[pageIndex].items[itemIndex].bundleName = selectedItem.bundleName
+                pages[pageIndex].items[itemIndex].applicationCategory = selectedItem.applicationCategory
                 pages[pageIndex].items[itemIndex].version = selectedItem.version
                 pages[pageIndex].items[itemIndex].sourcePath = selectedItem.sourcePath
                 pages[pageIndex].items[itemIndex].isHidden = true
@@ -2278,6 +2279,7 @@ private enum KidoXBackupManager {
         item.url = localItem.url
         item.bundleIdentifier = localItem.bundleIdentifier
         item.bundleName = localItem.bundleName
+        item.applicationCategory = localItem.applicationCategory
         item.version = localItem.version
         item.sourcePath = localItem.sourcePath
         return item

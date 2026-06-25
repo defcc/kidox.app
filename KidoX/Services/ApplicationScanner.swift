@@ -78,6 +78,7 @@ struct ApplicationScanner: Sendable {
             ?? url.deletingPathExtension().lastPathComponent
 
         let bundleIdentifier = bundle?.bundleIdentifier
+        let applicationCategory = info?["LSApplicationCategoryType"] as? String
         let version = info?["CFBundleShortVersionString"] as? String
         let parentName = url.deletingLastPathComponent().lastPathComponent
         let resourceValues = try? url.resourceValues(forKeys: [
@@ -97,6 +98,7 @@ struct ApplicationScanner: Sendable {
             url: url,
             bundleIdentifier: bundleIdentifier,
             bundleName: info?["CFBundleName"] as? String,
+            applicationCategory: applicationCategory,
             version: version,
             sourcePath: url.path,
             sortIndex: fallbackIndex,

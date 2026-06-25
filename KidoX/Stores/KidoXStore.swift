@@ -618,7 +618,7 @@ final class KidoXStore {
 
         let folderID = UUID()
         let folderURL = URL(string: "kidox://folder/\(folderID.uuidString)") ?? aItem.url
-        let folderName = autoFolderName(for: aItem, bItem)
+        let folderName = autoFolderName(for: aItem, bItem, on: pageIndex)
 
         let folder = LaunchItem(
             id: folderID,
@@ -735,7 +735,7 @@ final class KidoXStore {
         let folder = LaunchItem(
             id: folderID,
             kind: .folder,
-            displayName: autoFolderName(for: refreshedTarget, movingItem),
+            displayName: autoFolderName(for: refreshedTarget, movingItem, on: targetPageIndex),
             subtitle: "",
             url: folderURL,
             sourcePath: "",
@@ -1060,13 +1060,79 @@ final class KidoXStore {
         }
     }
 
-    private func autoFolderName(for a: LaunchItem, _ b: LaunchItem) -> String {
-        let trimmedA = a.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedB = b.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedA.isEmpty && trimmedA == trimmedB { return trimmedA }
-        if !trimmedA.isEmpty { return trimmedA }
-        if !trimmedB.isEmpty { return trimmedB }
-        return "Folder"
+    private func autoFolderName(for a: LaunchItem, _ b: LaunchItem, on pageIndex: Int) -> String {
+        if let categoryName = sharedApplicationCategoryName(for: a, b) {
+            return nextFolderName(basedOn: categoryName, on: pageIndex)
+        }
+        return nextFolderName(basedOn: "Folder", on: pageIndex)
+    }
+
+    private func sharedApplicationCategoryName(for a: LaunchItem, _ b: LaunchItem) -> String? {
+        guard
+            let categoryA = normalizedApplicationCategory(a.applicationCategory),
+            let categoryB = normalizedApplicationCategory(b.applicationCategory),
+            categoryA == categoryB
+        else { return nil }
+
+        return applicationCategoryDisplayName(categoryA)
+    }
+
+    private func normalizedApplicationCategory(_ category: String?) -> String? {
+        let trimmed = category?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
+    }
+
+    private func applicationCategoryDisplayName(_ category: String) -> String {
+        switch category {
+        case "public.app-category.business": "Business"
+        case "public.app-category.developer-tools": "Developer Tools"
+        case "public.app-category.education": "Education"
+        case "public.app-category.entertainment": "Entertainment"
+        case "public.app-category.finance": "Finance"
+        case "public.app-category.games": "Games"
+        case "public.app-category.graphics-design": "Graphics & Design"
+        case "public.app-category.healthcare-fitness": "Health & Fitness"
+        case "public.app-category.lifestyle": "Lifestyle"
+        case "public.app-category.medical": "Medical"
+        case "public.app-category.music": "Music"
+        case "public.app-category.news": "News"
+        case "public.app-category.photography": "Photography"
+        case "public.app-category.productivity": "Productivity"
+        case "public.app-category.reference": "Reference"
+        case "public.app-category.social-networking": "Social Networking"
+        case "public.app-category.sports": "Sports"
+        case "public.app-category.travel": "Travel"
+        case "public.app-category.utilities": "Utilities"
+        case "public.app-category.video": "Video"
+        case "public.app-category.weather": "Weather"
+        default:
+            category
+                .replacingOccurrences(of: "public.app-category.", with: "")
+                .split(separator: "-")
+                .map { word in
+                    String(word.prefix(1)).uppercased() + String(word.dropFirst())
+                }
+                .joined(separator: " ")
+        }
+    }
+
+    private func nextFolderName(basedOn baseName: String, on pageIndex: Int) -> String {
+        guard pages.indices.contains(pageIndex) else { return baseName }
+
+        let existingNames = Set(
+            pages[pageIndex].items
+                .filter { $0.kind == .folder }
+                .map { $0.effectiveDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase }
+        )
+        let normalizedBaseName = baseName.localizedLowercase
+        guard existingNames.contains(normalizedBaseName) else { return baseName }
+
+        var suffix = 2
+        while existingNames.contains("\(normalizedBaseName) \(suffix)") {
+            suffix += 1
+        }
+        return "\(baseName) \(suffix)"
     }
 
     private func merge(existing: [LaunchPage], scanned: [LaunchItem]) -> [LaunchPage] {
@@ -1088,6 +1154,7 @@ final class KidoXStore {
                 merged[location.pageIndex].items[location.itemIndex].url = scannedItem.url
                 merged[location.pageIndex].items[location.itemIndex].bundleIdentifier = scannedItem.bundleIdentifier
                 merged[location.pageIndex].items[location.itemIndex].bundleName = scannedItem.bundleName
+                merged[location.pageIndex].items[location.itemIndex].applicationCategory = scannedItem.applicationCategory
                 merged[location.pageIndex].items[location.itemIndex].version = scannedItem.version
                 merged[location.pageIndex].items[location.itemIndex].sourcePath = scannedItem.sourcePath
             } else if !insertedKeys.contains(key) {
