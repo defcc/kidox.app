@@ -431,8 +431,6 @@ struct KidoXForegroundLayer: View {
     private let dragPageTurnRepeatDwell: TimeInterval = 1.0
     private let dragPageTurnCooldown: TimeInterval = 0.3
     private let dropTargetIconSize: CGFloat = 108
-    private let folderTileWidth: CGFloat = 174
-    private let folderTileHeight: CGFloat = 128
 
     private var isIconInteractionActive: Bool {
         pressedItemID != nil
@@ -800,7 +798,7 @@ struct KidoXForegroundLayer: View {
             rootDragStartRequest: rootDragStartRequest,
             pageTurnAnimationRequest: pageTurnAnimationRequest,
             compactionAnimationRequest: gridCompactionAnimationRequest,
-            visuallyHiddenItemID: uninstallCompletionAnimation?.item.id,
+            visuallyHiddenItemID: store.openFolderID ?? uninstallCompletionAnimation?.item.id,
             onPageTurn: { page in
                 moveKeyboardSelectionToFirstItem(on: page)
             },
@@ -928,6 +926,7 @@ struct KidoXForegroundLayer: View {
             isPressed: isPressed && !isPlaceholder,
             isDragging: false,
             isDropTarget: shouldShowDropTarget(for: item),
+            metrics: appTileMetrics(for: size),
             canRename: isPro,
             openAction: { open(item) },
             revealAction: { store.revealInFinder(item) },
@@ -961,6 +960,7 @@ struct KidoXForegroundLayer: View {
             isPressed: !isCompletingDrag,
             isDragging: !isCompletingDrag,
             isDropTarget: false,
+            metrics: appTileMetrics(for: currentSize),
             openAction: { },
             revealAction: { },
             uninstallAction: nil,
@@ -1023,21 +1023,20 @@ struct KidoXForegroundLayer: View {
                 x: tileX(index: itemIndex, columns: columns, size: size),
                 y: tileY(index: itemIndex, columns: columns, rows: rows, size: size)
             )
-            return appTileContentHit(at: point, center: center, item: item)
+            return appTileContentHit(at: point, center: center, item: item, size: size)
         }
     }
 
-    private func appTileContentHit(at point: CGPoint, center: CGPoint, item: LaunchItem) -> Bool {
-        let iconSize: CGFloat = 102
-        let tileWidth: CGFloat = 174
-        let labelSpacing: CGFloat = 5
-        let labelFont = NSFont.systemFont(ofSize: 13, weight: .regular)
-        let labelHeight = ceil(labelFont.ascender - labelFont.descender + labelFont.leading)
+    private func appTileContentHit(at point: CGPoint, center: CGPoint, item: LaunchItem, size: CGSize) -> Bool {
+        let metrics = appTileMetrics(for: size)
+        let iconSize = metrics.iconSize
+        let labelFont = appTileLabelFont(for: metrics)
+        let labelHeight = appTileLabelHeight(for: metrics)
         let labelWidth = min(
             ceil((item.effectiveDisplayName as NSString).size(withAttributes: [.font: labelFont]).width),
-            tileWidth
+            metrics.tileWidth
         )
-        let contentHeight = iconSize + labelSpacing + labelHeight
+        let contentHeight = iconSize + metrics.labelSpacing + labelHeight
         let iconRect = CGRect(
             x: center.x - iconSize / 2,
             y: center.y - contentHeight / 2,
@@ -1046,7 +1045,7 @@ struct KidoXForegroundLayer: View {
         )
         let labelRect = CGRect(
             x: center.x - labelWidth / 2,
-            y: iconRect.maxY + labelSpacing,
+            y: iconRect.maxY + metrics.labelSpacing,
             width: labelWidth,
             height: labelHeight
         )
@@ -1308,15 +1307,16 @@ struct KidoXForegroundLayer: View {
 
     private func makeUninstallCompletionAnimation(for item: LaunchItem, size: CGSize) -> UninstallCompletionAnimation? {
         guard size.width > 0, size.height > 0 else { return nil }
+        let metrics = appTileMetrics(for: size)
         let icon = NSWorkspace.shared.icon(forFile: item.sourcePath)
-        icon.size = CGSize(width: AppTileMetrics.standard.iconSize, height: AppTileMetrics.standard.iconSize)
+        icon.size = CGSize(width: metrics.iconSize, height: metrics.iconSize)
 
         let center = uninstallAnimationCenter(for: item, size: size)
         return UninstallCompletionAnimation(
             item: item,
             icon: icon,
             center: center,
-            iconSize: AppTileMetrics.standard.iconSize
+            iconSize: metrics.iconSize
         )
     }
 
@@ -1340,7 +1340,7 @@ struct KidoXForegroundLayer: View {
                 let origin = folderPanelOrigin(folderID: openFolderID, size: size)
                 return CGPoint(
                     x: origin.x + tileCenter.x,
-                    y: origin.y + tileCenter.y - (appTileLabelSpacing + appTileLabelHeight) / 2
+                    y: origin.y + tileCenter.y - appTileIconLabelYOffset(for: size)
                 )
             }
         }
@@ -1356,7 +1356,7 @@ struct KidoXForegroundLayer: View {
                 return CGPoint(
                     x: tileX(index: itemIndex, columns: columns, size: size),
                     y: tileY(index: itemIndex, columns: columns, rows: rows, size: size)
-                        - (appTileLabelSpacing + appTileLabelHeight) / 2
+                        - appTileIconLabelYOffset(for: size)
                 )
             }
         }
@@ -1938,6 +1938,7 @@ struct KidoXForegroundLayer: View {
             let progress = folderOverlayProgress
             let easedProgress = smoothStep(progress)
             let panelWidth = folderPanelWidth(for: size)
+            let metrics = appTileMetrics(for: size)
 
             let iconCenter = folderIconCenter(folderID: folderID, size: size)
                 ?? CGPoint(
@@ -1951,14 +1952,13 @@ struct KidoXForegroundLayer: View {
             let posX = interpolate(from: iconCenter.x, to: panelCenter.x, progress: easedProgress)
             let posY = interpolate(from: iconCenter.y, to: panelCenter.y, progress: easedProgress)
 
-            let visualWidth = interpolate(from: folderIconVisualSize, to: panelWidth, progress: easedProgress)
-            let visualHeight = interpolate(from: folderIconVisualSize, to: panelHeight, progress: easedProgress)
+            let visualWidth = interpolate(from: folderIconVisualSize(for: metrics), to: panelWidth, progress: easedProgress)
+            let visualHeight = interpolate(from: folderIconVisualSize(for: metrics), to: panelHeight, progress: easedProgress)
             let uniformScale = visualWidth / panelWidth
 
             let contentOpacity = folderPanelContentOpacity(progress)
             let sourcePreviewOpacity = folderSourcePreviewOpacity(progress)
-            let sourcePreviewScale = interpolate(from: 1, to: 1.04, progress: clamped(progress / 0.32))
-            let visualCornerRadius = interpolate(from: folderIconCornerRadius, to: 40, progress: easedProgress)
+            let visualCornerRadius = interpolate(from: folderIconCornerRadius(for: metrics), to: 40, progress: easedProgress)
             let visualShape = RoundedRectangle(cornerRadius: visualCornerRadius, style: .continuous)
 
             ZStack {
@@ -2065,9 +2065,9 @@ struct KidoXForegroundLayer: View {
                     FolderPreviewIcon(
                         items: children,
                         isDropTarget: false,
-                        size: folderIconFrameSize
+                        size: metrics.iconSize,
+                        showsBackground: false
                     )
-                    .scaleEffect(sourcePreviewScale, anchor: .center)
                     .opacity(sourcePreviewOpacity)
                     .allowsHitTesting(false)
                 }
@@ -2107,6 +2107,7 @@ struct KidoXForegroundLayer: View {
                     isPressed: folderPressedItemID == item.id && !isPlaceholder,
                     isDragging: false,
                     isDropTarget: false,
+                    metrics: folderTileMetrics(for: size),
                     openAction: { open(item) },
                     revealAction: { store.revealInFinder(item) },
                     uninstallAction: canUninstall(item) ? {
@@ -2144,6 +2145,7 @@ struct KidoXForegroundLayer: View {
                 isPressed: true,
                 isDragging: true,
                 isDropTarget: false,
+                metrics: folderTileMetrics(for: size),
                 openAction: { },
                 revealAction: { },
                 uninstallAction: nil,
@@ -2399,11 +2401,12 @@ struct KidoXForegroundLayer: View {
         let row = index / columns
         let margin = folderGridHorizontalPadding(for: size)
         let slotWidth = (folderPanelWidth(for: size) - margin * 2) / CGFloat(columns)
+        let metrics = folderTileMetrics(for: size)
         let x = margin + slotWidth * (CGFloat(column) + 0.5)
         let y = folderGridTopPadding
-            + folderTileHeight / 2
+            + metrics.tileHeight / 2
             + CGFloat(row) * (
-                folderTileHeight
+                metrics.tileHeight
                     + effectiveFolderGridRowSpacing(
                         for: size,
                         itemCount: itemCount,
@@ -2417,7 +2420,7 @@ struct KidoXForegroundLayer: View {
         let columns = max(1, folderGridColumnCount(for: size))
         let margin = folderGridHorizontalPadding(for: size)
         let slotWidth = (folderPanelWidth(for: size) - margin * 2) / CGFloat(columns)
-        let stepY = folderTileHeight + effectiveFolderGridRowSpacing(
+        let stepY = folderTileMetrics(for: size).tileHeight + effectiveFolderGridRowSpacing(
             for: size,
             itemCount: itemCount,
             layoutHeight: layoutHeight
@@ -2439,12 +2442,13 @@ struct KidoXForegroundLayer: View {
         let columns = max(1, folderGridColumnCount(for: size))
         let margin = folderGridHorizontalPadding(for: size)
         let slotWidth = (folderPanelWidth(for: size) - margin * 2) / CGFloat(columns)
-        let stepY = folderTileHeight + effectiveFolderGridRowSpacing(
+        let metrics = folderTileMetrics(for: size)
+        let stepY = metrics.tileHeight + effectiveFolderGridRowSpacing(
             for: size,
             itemCount: children.count,
             layoutHeight: layoutHeight
         )
-        let firstRowCenterY = folderGridTopPadding + folderTileHeight / 2
+        let firstRowCenterY = folderGridTopPadding + metrics.tileHeight / 2
         let maxRow = max(0, (children.count - 1) / columns)
         let rawRow = Int(((point.y - firstRowCenterY) / max(stepY, 1)).rounded())
         let targetRow = max(0, min(maxRow, rawRow))
@@ -2897,29 +2901,31 @@ struct KidoXForegroundLayer: View {
 
     private func folderPanelContentHeight(for size: CGSize, itemCount: Int) -> CGFloat {
         let rows = folderGridRowCount(for: size, itemCount: itemCount)
+        let metrics = folderTileMetrics(for: size)
         return folderGridTopPadding
             + folderGridBottomPadding
-            + CGFloat(rows) * folderTileHeight
+            + CGFloat(rows) * metrics.tileHeight
             + CGFloat(max(rows - 1, 0)) * folderGridRowSpacing(for: size)
     }
 
     private func folderGridColumns(for size: CGSize) -> [GridItem] {
         let columnCount = folderGridColumnCount(for: size)
         return Array(
-            repeating: GridItem(.fixed(folderTileWidth), spacing: folderGridColumnSpacing(for: size), alignment: .top),
+            repeating: GridItem(.fixed(folderTileMetrics(for: size).tileWidth), spacing: folderGridColumnSpacing(for: size), alignment: .top),
             count: columnCount
         )
     }
 
     private func folderGridColumnCount(for size: CGSize) -> Int {
-        max(3, min(7, Int(folderPanelWidth(for: size) / 220)))
+        let minimumColumnWidth = max(178, folderTileMetrics(for: size).tileWidth + 46)
+        return max(3, min(7, Int(folderPanelWidth(for: size) / minimumColumnWidth)))
     }
 
     private func folderGridColumnSpacing(for size: CGSize) -> CGFloat {
         let columnCount = folderGridColumnCount(for: size)
         let available = folderPanelWidth(for: size) - folderGridHorizontalPadding(for: size) * 2
         guard columnCount > 1 else { return 0 }
-        return max(28, min(92, (available - CGFloat(columnCount) * folderTileWidth) / CGFloat(columnCount - 1)))
+        return max(28, min(92, (available - CGFloat(columnCount) * folderTileMetrics(for: size).tileWidth) / CGFloat(columnCount - 1)))
     }
 
     private func folderGridRowSpacing(for size: CGSize) -> CGFloat {
@@ -2933,7 +2939,7 @@ struct KidoXForegroundLayer: View {
         let available = layoutHeight
             - folderGridTopPadding
             - folderGridBottomPadding
-            - CGFloat(rows) * folderTileHeight
+            - CGFloat(rows) * folderTileMetrics(for: size).tileHeight
         return max(0, min(folderGridRowSpacing(for: size), available / CGFloat(rows - 1)))
     }
 
@@ -2992,16 +2998,16 @@ struct KidoXForegroundLayer: View {
         36
     }
 
-    private var folderIconFrameSize: CGFloat {
-        AppTileMetrics.standard.iconSize
+    private func folderTileMetrics(for size: CGSize) -> AppTileMetrics {
+        appTileMetrics(for: size)
     }
 
-    private var folderIconVisualSize: CGFloat {
-        folderIconFrameSize * 82 / 102
+    private func folderIconVisualSize(for metrics: AppTileMetrics) -> CGFloat {
+        metrics.iconSize * 82 / 102
     }
 
-    private var folderIconCornerRadius: CGFloat {
-        folderIconVisualSize * 0.30
+    private func folderIconCornerRadius(for metrics: AppTileMetrics) -> CGFloat {
+        folderIconVisualSize(for: metrics) * 0.30
     }
 
     private func folderPanelContentOpacity(_ progress: CGFloat) -> CGFloat {
@@ -3027,16 +3033,57 @@ struct KidoXForegroundLayer: View {
 
     private func folderIconCenter(folderID: LaunchItem.ID, size: CGSize) -> CGPoint? {
         guard var center = folderTileCenter(folderID: folderID, size: size) else { return nil }
-        center.y -= (appTileLabelSpacing + appTileLabelHeight) / 2
+        center.y -= appTileIconLabelYOffset(for: size)
         return center
     }
 
-    private var appTileLabelSpacing: CGFloat {
-        5
+    private func appTileMetrics(for size: CGSize) -> AppTileMetrics {
+        let columns = max(columnCount(for: size), 1)
+        let rows = max(rowCount(for: size), 1)
+        let columnWidth = max(contentWidth(for: size), 1) / CGFloat(columns)
+        let rowStride: CGFloat
+        if rows > 1 {
+            rowStride = max((gridBottomY(for: size) - gridTopY(for: size)) / CGFloat(rows - 1), 1)
+        } else {
+            rowStride = max(gridBottomY(for: size) - gridTopY(for: size), 1)
+        }
+
+        let rawIconSize = min(columnWidth * 0.58, rowStride * 0.74)
+        let iconSize = min(max(rawIconSize.rounded(.toNearestOrAwayFromZero), 82), 132)
+        let labelSpacing: CGFloat = 5
+        let labelFontSize: CGFloat = 13
+        let labelHeight = appTileLabelHeight(for: labelFontSize)
+        let tileWidth = max(132, min(columnWidth * 0.92, iconSize + 72))
+        let tileHeight = iconSize + labelSpacing + labelHeight + 5
+
+        return AppTileMetrics(
+            tileWidth: tileWidth.rounded(.toNearestOrAwayFromZero),
+            tileHeight: tileHeight.rounded(.toNearestOrAwayFromZero),
+            iconSize: iconSize,
+            labelSpacing: labelSpacing,
+            labelFontSize: labelFontSize
+        )
     }
 
-    private var appTileLabelHeight: CGFloat {
-        let font = NSFont.systemFont(ofSize: 13, weight: .regular)
+    private func appTileIconLabelYOffset(for size: CGSize) -> CGFloat {
+        let metrics = appTileMetrics(for: size)
+        return (metrics.labelSpacing + appTileLabelHeight(for: metrics)) / 2
+    }
+
+    private func appTileLabelFont(for metrics: AppTileMetrics) -> NSFont {
+        appTileLabelFont(size: metrics.labelFontSize)
+    }
+
+    private func appTileLabelFont(size: CGFloat) -> NSFont {
+        NSFont.systemFont(ofSize: size, weight: .regular)
+    }
+
+    private func appTileLabelHeight(for metrics: AppTileMetrics) -> CGFloat {
+        appTileLabelHeight(for: metrics.labelFontSize)
+    }
+
+    private func appTileLabelHeight(for fontSize: CGFloat) -> CGFloat {
+        let font = appTileLabelFont(size: fontSize)
         return ceil(font.ascender - font.descender + font.leading)
     }
 
@@ -4449,14 +4496,20 @@ private struct FolderPreviewIcon: View, Equatable {
     let items: [LaunchItem]
     let isDropTarget: Bool
     let size: CGFloat
+    var showsBackground = true
 
     nonisolated static func == (lhs: FolderPreviewIcon, rhs: FolderPreviewIcon) -> Bool {
-        lhs.items == rhs.items && lhs.isDropTarget == rhs.isDropTarget && lhs.size == rhs.size
+        lhs.items == rhs.items
+            && lhs.isDropTarget == rhs.isDropTarget
+            && lhs.size == rhs.size
+            && lhs.showsBackground == rhs.showsBackground
     }
 
     var body: some View {
         ZStack {
-            FolderGlassBackground(size: isDropTarget ? dropTargetSize : visibleSize, showsStroke: !isDropTarget)
+            if showsBackground {
+                FolderGlassBackground(size: isDropTarget ? dropTargetSize : visibleSize, showsStroke: !isDropTarget)
+            }
 
             ZStack(alignment: .topLeading) {
                 Color.clear
