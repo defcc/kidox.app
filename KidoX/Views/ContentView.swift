@@ -408,6 +408,7 @@ struct KidoXForegroundLayer: View {
     @State private var folderDragOriginSlot: Int?
     @State private var folderOrderOverride: [LaunchItem.ID]?
     @State private var folderDragHasExited = false
+    @State private var folderDragExitPanelOrigin: CGPoint?
     @State private var rootDragStartRequest: RootDragStartRequest?
     @State private var folderOverlayIsExpanded = false
     @State private var folderOverlayProgress: CGFloat = 0
@@ -1422,9 +1423,11 @@ struct KidoXForegroundLayer: View {
         }
     }
 
-    private func closeFolder() {
+    private func closeFolder(resetsFolderDragState: Bool = true) {
         withAnimation(Self.folderMorphAnimation) {
-            resetFolderDragState()
+            if resetsFolderDragState {
+                resetFolderDragState()
+            }
             folderOverlayIsExpanded = false
             folderOverlayProgress = 0
             pressedItemID = nil
@@ -2203,6 +2206,10 @@ struct KidoXForegroundLayer: View {
         folderPressedItemID = nil
 
         guard wasDragging else {
+            if folderDragHasExited {
+                resetFolderDragState()
+                return
+            }
             let distance = hypot(drag.translation.width, drag.translation.height)
             if distance <= dragActivationDistance {
                 open(item)
@@ -2273,6 +2280,7 @@ struct KidoXForegroundLayer: View {
         )
 
         if folderDragHasExited {
+            updateRootDragStartRequestCurrentPoint(pointerLocation: drag.location, size: size)
             return
         }
 
@@ -2310,6 +2318,7 @@ struct KidoXForegroundLayer: View {
         folderDragOriginSlot = nil
         folderOrderOverride = nil
         folderDragHasExited = false
+        folderDragExitPanelOrigin = nil
     }
 
     private func beginFolderDragExitIfNeeded(
@@ -2321,6 +2330,7 @@ struct KidoXForegroundLayer: View {
         folderDragHasExited = true
 
         let panelOrigin = folderPanelOrigin(size: size)
+        folderDragExitPanelOrigin = panelOrigin
         let globalPointerLocation = CGPoint(
             x: panelOrigin.x + pointerLocation.x,
             y: panelOrigin.y + pointerLocation.y
@@ -2355,7 +2365,32 @@ struct KidoXForegroundLayer: View {
             targetPage: resolvedPage
         )
 
-        closeFolder()
+        folderPressedItemID = nil
+        folderDraggingItemID = nil
+        folderDraggedItem = nil
+        folderDragLocation = .zero
+        folderDragStartLocation = nil
+        folderDragFingerOffset = .zero
+        folderDragOriginSlot = nil
+        folderOrderOverride = nil
+
+        closeFolder(resetsFolderDragState: false)
+    }
+
+    private func updateRootDragStartRequestCurrentPoint(pointerLocation: CGPoint, size: CGSize) {
+        guard let request = rootDragStartRequest else { return }
+        let panelOrigin = folderDragExitPanelOrigin ?? folderPanelOrigin(size: size)
+        rootDragStartRequest = RootDragStartRequest(
+            id: request.id,
+            itemID: request.itemID,
+            startPoint: request.startPoint,
+            currentPoint: CGPoint(
+                x: panelOrigin.x + pointerLocation.x,
+                y: panelOrigin.y + pointerLocation.y
+            ),
+            fingerOffset: request.fingerOffset,
+            targetPage: request.targetPage
+        )
     }
 
     private func commitFolderDragExit(_ item: LaunchItem, at panelPoint: CGPoint, size: CGSize) {
@@ -2852,18 +2887,21 @@ struct KidoXForegroundLayer: View {
     }
 
     private var appChromeOpacity: CGFloat {
+        guard !folderDragHasExited else { return 1 }
         guard store.openFolderID != nil else { return 1 }
         let delayed = clamped((folderOverlayProgress - 0.55) / 0.45)
         return interpolate(from: 1, to: 0, progress: delayed)
     }
 
     private var backgroundGridBlurRadius: CGFloat {
+        guard !folderDragHasExited else { return 0 }
         guard store.openFolderID != nil else { return 0 }
         let delayed = clamped((folderOverlayProgress - 0.45) / 0.55)
         return interpolate(from: 0, to: 5, progress: delayed)
     }
 
     private var backgroundGridScale: CGFloat {
+        guard !folderDragHasExited else { return 1 }
         guard store.openFolderID != nil else { return 1 }
         let delayed = clamped((folderOverlayProgress - 0.45) / 0.55)
         return interpolate(from: 1, to: 0.92, progress: delayed)
@@ -6109,8 +6147,17 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             let point = self.convert(event.locationInWindow, from: nil)
             switch event.type {
             case .leftMouseDragged:
+                if self.tileDragUsesSystemDrag {
+                    return nil
+                }
+                if self.beginAppSystemDragIfNeeded(event: event, point: point) {
+                    return nil
+                }
                 self.updateTileDrag(at: point)
             case .leftMouseUp:
+                if self.tileDragUsesSystemDrag {
+                    return nil
+                }
                 self.removeRootDragMonitor()
                 self.finishTileDrag(at: point)
             default:
