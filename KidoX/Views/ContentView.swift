@@ -221,6 +221,35 @@ private struct GridCompactionAnimationRequest: Equatable {
     let removedItemID: LaunchItem.ID
 }
 
+private enum TileReorderMotion {
+    static let duration: TimeInterval = 0.52
+    private static let c1x = 0.22
+    private static let c1y = 1.0
+    private static let c2x = 0.36
+    private static let c2y = 1.0
+
+    static var swiftUIAnimation: Animation {
+        .timingCurve(c1x, c1y, c2x, c2y, duration: duration)
+    }
+
+    static var caTimingFunction: CAMediaTimingFunction {
+        CAMediaTimingFunction(
+            controlPoints: Float(c1x),
+            Float(c1y),
+            Float(c2x),
+            Float(c2y)
+        )
+    }
+}
+
+private enum TileDropMotion {
+    static let duration: TimeInterval = 0.18
+
+    static var swiftUIAnimation: Animation {
+        .interpolatingSpring(stiffness: 520, damping: 38)
+    }
+}
+
 struct KidoXBackgroundLayer: View {
     var body: some View {
         KidoXBackground()
@@ -409,6 +438,7 @@ struct KidoXForegroundLayer: View {
     @State private var folderOrderOverride: [LaunchItem.ID]?
     @State private var folderDragHasExited = false
     @State private var folderDragExitPanelOrigin: CGPoint?
+    @State private var isCompletingFolderDrag = false
     @State private var rootDragStartRequest: RootDragStartRequest?
     @State private var folderOverlayIsExpanded = false
     @State private var folderOverlayProgress: CGFloat = 0
@@ -1809,12 +1839,12 @@ struct KidoXForegroundLayer: View {
         }
 
         isCompletingDrag = true
-        withAnimation(.interpolatingSpring(stiffness: 520, damping: 38)) {
+        withAnimation(TileDropMotion.swiftUIAnimation) {
             dragLocation = targetLocation
         }
 
         let shouldAnimateLayoutCommit = dragDropTargetID != nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + TileDropMotion.duration) {
             finishDragWithoutAnimation(animateLayout: shouldAnimateLayoutCommit)
         }
     }
@@ -2146,8 +2176,8 @@ struct KidoXForegroundLayer: View {
             AppTile(
                 item: folderDraggedItem,
                 previewItems: folderDraggedItem.kind == .folder ? store.children(of: folderDraggedItem.id) : [],
-                isPressed: true,
-                isDragging: true,
+                isPressed: !isCompletingFolderDrag,
+                isDragging: !isCompletingFolderDrag,
                 isDropTarget: false,
                 metrics: folderTileMetrics(for: size),
                 openAction: { },
@@ -2181,6 +2211,7 @@ struct KidoXForegroundLayer: View {
         drag: DragGesture.Value,
         size: CGSize
     ) {
+        guard !isCompletingFolderDrag else { return }
         guard !folderDragHasExited else { return }
 
         if folderPressedItemID != item.id {
@@ -2228,9 +2259,9 @@ struct KidoXForegroundLayer: View {
             return
         }
 
-        if let override = folderOrderOverride,
-           let targetSlot = override.firstIndex(of: item.id) {
-            store.reorder(itemID: item.id, toSlot: targetSlot)
+        if folderOrderOverride?.firstIndex(of: item.id) != nil {
+            completeFolderTileDrag(item: item, children: children, size: size)
+            return
         }
         resetFolderDragState()
     }
@@ -2267,6 +2298,7 @@ struct KidoXForegroundLayer: View {
         )
         folderOrderOverride = children.map(\.id)
         folderDragHasExited = false
+        isCompletingFolderDrag = false
     }
 
     private func updateFolderTileDrag(
@@ -2304,8 +2336,55 @@ struct KidoXForegroundLayer: View {
         order.insert(item.id, at: bounded)
 
         guard folderOrderOverride != order else { return }
-        withAnimation(.snappy(duration: 0.18)) {
+        withAnimation(TileReorderMotion.swiftUIAnimation) {
             folderOrderOverride = order
+        }
+    }
+
+    private func completeFolderTileDrag(
+        item: LaunchItem,
+        children: [LaunchItem],
+        size: CGSize
+    ) {
+        guard let targetLocation = finalFolderDragLocation(item: item, children: children, size: size) else {
+            finishFolderDragWithoutAnimation(item: item)
+            return
+        }
+
+        isCompletingFolderDrag = true
+        withAnimation(TileDropMotion.swiftUIAnimation) {
+            folderDragLocation = targetLocation
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + TileDropMotion.duration) {
+            finishFolderDragWithoutAnimation(item: item)
+        }
+    }
+
+    private func finalFolderDragLocation(
+        item: LaunchItem,
+        children: [LaunchItem],
+        size: CGSize
+    ) -> CGPoint? {
+        let displayItems = folderDisplayOrder(children)
+        guard let targetSlot = displayItems.firstIndex(where: { $0.id == item.id }) else { return nil }
+        return folderTilePosition(
+            index: targetSlot,
+            itemCount: children.count,
+            size: size,
+            layoutHeight: folderGridLayoutHeight(for: size, itemCount: children.count)
+        )
+    }
+
+    private func finishFolderDragWithoutAnimation(item: LaunchItem) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if let override = folderOrderOverride,
+               let targetSlot = override.firstIndex(of: item.id) {
+                store.reorder(itemID: item.id, toSlot: targetSlot)
+            }
+            resetFolderDragState()
         }
     }
 
@@ -2320,6 +2399,7 @@ struct KidoXForegroundLayer: View {
         folderOrderOverride = nil
         folderDragHasExited = false
         folderDragExitPanelOrigin = nil
+        isCompletingFolderDrag = false
     }
 
     private func beginFolderDragExitIfNeeded(
@@ -3946,70 +4026,6 @@ private struct AppTile: View, Equatable {
     }
 }
 
-private struct FolderDetailAppTile: View, Equatable {
-    let item: LaunchItem
-    let previewItems: [LaunchItem]
-    let isPressed: Bool
-    let isDragging: Bool
-    let openAction: () -> Void
-    let revealAction: () -> Void
-    var uninstallAction: (() -> Void)? = nil
-
-    nonisolated static func == (lhs: FolderDetailAppTile, rhs: FolderDetailAppTile) -> Bool {
-        lhs.item == rhs.item
-            && lhs.previewItems == rhs.previewItems
-            && lhs.isPressed == rhs.isPressed
-            && lhs.isDragging == rhs.isDragging
-    }
-
-    var body: some View {
-        Button(action: openAction) {
-            VStack(spacing: 7) {
-                icon
-                    .frame(width: 96, height: 96)
-
-                Text(item.effectiveDisplayName)
-                    .font(.system(size: 13, weight: .regular))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.55), radius: 2, x: 0, y: 1)
-                    .frame(width: 174)
-            }
-            .frame(width: 174, height: 128)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .opacity(isDragging ? 0.96 : 1)
-        .contextMenu {
-            Button(KidoXL10n.string(.open)) {
-                openAction()
-            }
-            Button(KidoXL10n.string(.showInFinder)) {
-                revealAction()
-            }
-            if let uninstallAction {
-                Button(KidoXL10n.string(.uninstallAppEllipsis)) {
-                    uninstallAction()
-                }
-            }
-            Divider()
-            Text(item.bundleIdentifier ?? item.sourcePath)
-        }
-    }
-
-    @ViewBuilder
-    private var icon: some View {
-        if item.kind == .folder {
-            FolderPreviewIcon(items: previewItems, isDropTarget: false, size: 96)
-        } else {
-            Image(nsImage: IconCache.rasterizedIcon(for: item.sourcePath, pointSize: 96))
-                .frame(width: 96, height: 96)
-        }
-    }
-}
-
 private struct PressedIconOverlay: View {
     let item: LaunchItem
     let isVisible: Bool
@@ -5201,7 +5217,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     private let dragPageTurnRepeatDwell: TimeInterval = 1.0
     private let dragPageTurnCooldown: TimeInterval = 0.3
     private let mouseWheelPageTurnCooldown: TimeInterval = 0.22
-    private let tileReorderAnimationDuration: TimeInterval = 0.52
+    private let tileReorderAnimationDuration = TileReorderMotion.duration
     private let tileDropTargetFinishAnimationDuration: TimeInterval = 0.18
     private let dropTargetIconSize: CGFloat = 108
     private let enablesAppSystemDragBridge = true
@@ -5726,7 +5742,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             // 同一项：直接平滑挪到新位置（page 切换 / 布局变化）
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.18
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                context.timingFunction = TileReorderMotion.caTimingFunction
                 context.allowsImplicitAnimation = true
                 existing.animator().frame = frame
             }
@@ -5834,7 +5850,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = tileReorderAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+            context.timingFunction = TileReorderMotion.caTimingFunction
             context.allowsImplicitAnimation = true
             for animation in animations {
                 setVisual(
@@ -6651,7 +6667,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             context.duration = isDroppingIntoTarget
                 ? tileDropTargetFinishAnimationDuration
                 : tileReorderAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+            context.timingFunction = TileReorderMotion.caTimingFunction
             context.allowsImplicitAnimation = true
             overlay.animator().frame = finalFrame
             if isDroppingIntoTarget {
@@ -6861,7 +6877,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         let finalFrame = convertGridRectToOverlayHost(finalFrameInGrid, in: host)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.52
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+            context.timingFunction = TileReorderMotion.caTimingFunction
             context.allowsImplicitAnimation = true
             overlay.animator().frame = finalFrame
         }, completionHandler: {
@@ -7239,13 +7255,13 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         if animated {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = tileReorderAnimationDuration
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                context.timingFunction = TileReorderMotion.caTimingFunction
                 context.allowsImplicitAnimation = true
 
                 CATransaction.begin()
                 CATransaction.setAnimationDuration(tileReorderAnimationDuration)
                 CATransaction.setAnimationTimingFunction(
-                    CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                    TileReorderMotion.caTimingFunction
                 )
 
                 for pageIndex in pages.indices {
@@ -7312,7 +7328,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                     anim.fromValue = NSValue(point: NSPoint(x: fromPosition.x, y: fromPosition.y))
                     anim.toValue = NSValue(point: NSPoint(x: toPosition.x, y: toPosition.y))
                     anim.duration = tileReorderAnimationDuration
-                    anim.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                    anim.timingFunction = TileReorderMotion.caTimingFunction
                     layer.add(anim, forKey: "tileReorderPosition")
                 }
                 layer.actions = disabledActions
