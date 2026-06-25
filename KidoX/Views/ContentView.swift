@@ -3152,95 +3152,169 @@ private struct UninstallPoofAnimation: View {
     let animation: UninstallCompletionAnimation
     let onFinished: () -> Void
 
-    @State private var isExpanded = false
-    @State private var isFading = false
-    @State private var isIconGone = false
-
-    private let bubbles: [PoofBubble] = [
-        .init(x: -0.44, y: -0.20, size: 34, delay: 0.00),
-        .init(x: -0.28, y: -0.45, size: 42, delay: 0.02),
-        .init(x: 0.00, y: -0.50, size: 50, delay: 0.01),
-        .init(x: 0.34, y: -0.34, size: 38, delay: 0.03),
-        .init(x: 0.52, y: -0.06, size: 45, delay: 0.00),
-        .init(x: 0.36, y: 0.26, size: 36, delay: 0.04),
-        .init(x: 0.08, y: 0.44, size: 48, delay: 0.02),
-        .init(x: -0.26, y: 0.36, size: 40, delay: 0.03),
-        .init(x: -0.54, y: 0.10, size: 46, delay: 0.01),
-        .init(x: 0.02, y: 0.02, size: 58, delay: 0.00)
-    ]
+    @State private var iconScale: CGFloat = 1
+    @State private var iconOpacity: Double = 1
+    @State private var shouldShowNativePoof = false
 
     var body: some View {
         ZStack {
             Image(nsImage: animation.icon)
                 .resizable()
                 .frame(width: animation.iconSize, height: animation.iconSize)
-                .scaleEffect(isIconGone ? 0.62 : 1)
-                .opacity(isIconGone ? 0 : 1)
-                .blur(radius: isIconGone ? 6 : 0)
+                .scaleEffect(iconScale)
+                .opacity(iconOpacity)
                 .position(animation.center)
 
-            ForEach(bubbles) { bubble in
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.92),
-                                Color(nsColor: .controlBackgroundColor).opacity(0.78),
-                                Color(nsColor: .separatorColor).opacity(0.20)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.68), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
-                    .frame(
-                        width: bubble.size * (isFading ? 1.22 : (isExpanded ? 1 : 0.24)),
-                        height: bubble.size * (isFading ? 1.22 : (isExpanded ? 1 : 0.24))
-                    )
-                    .opacity(isFading ? 0 : (isExpanded ? 0.86 : 0))
-                    .position(bubblePosition(for: bubble))
-                    .animation(.easeOut(duration: 0.16).delay(bubble.delay), value: isExpanded)
-                    .animation(.easeOut(duration: 0.42).delay(bubble.delay), value: isFading)
+            if shouldShowNativePoof {
+                NativePoofEffectView(
+                    id: animation.id,
+                    center: animation.center,
+                    size: CGSize(width: animation.iconSize * 1.65, height: animation.iconSize * 1.65),
+                    onFinished: onFinished
+                )
             }
         }
         .onAppear(perform: start)
     }
 
-    private func bubblePosition(for bubble: PoofBubble) -> CGPoint {
-        let travel = animation.iconSize * (isFading ? 0.72 : (isExpanded ? 0.42 : 0.04))
-        return CGPoint(
-            x: animation.center.x + bubble.x * travel,
-            y: animation.center.y + bubble.y * travel
-        )
+    private func start() {
+        withAnimation(.easeIn(duration: 0.10)) {
+            iconScale = 0.68
+            iconOpacity = 0
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07) {
+            shouldShowNativePoof = true
+        }
+    }
+}
+
+private struct NativePoofEffectView: NSViewRepresentable {
+    let id: UUID
+    let center: CGPoint
+    let size: CGSize
+    let onFinished: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFinished: onFinished)
     }
 
-    private func start() {
-        withAnimation(.easeOut(duration: 0.14)) {
-            isIconGone = true
-            isExpanded = true
+    func makeNSView(context: Context) -> PoofHostView {
+        let view = PoofHostView()
+        view.effectID = id
+        view.centerPoint = center
+        view.effectSize = size
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: PoofHostView, context: Context) {
+        nsView.effectID = id
+        nsView.centerPoint = center
+        nsView.effectSize = size
+        nsView.coordinator = context.coordinator
+        nsView.showIfPossible()
+    }
+
+    final class Coordinator: NSObject {
+        private let onFinished: () -> Void
+        private var didFinish = false
+
+        init(onFinished: @escaping () -> Void) {
+            self.onFinished = onFinished
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            withAnimation(.easeOut(duration: 0.42)) {
-                isFading = true
-            }
+        @objc func animationEffectDidEnd(_ contextInfo: UnsafeMutableRawPointer?) {
+            finish()
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.72) {
+        func finish() {
+            guard !didFinish else { return }
+            didFinish = true
             onFinished()
         }
     }
 
-    private struct PoofBubble: Identifiable {
-        let id = UUID()
-        let x: CGFloat
-        let y: CGFloat
-        let size: CGFloat
-        let delay: Double
+    final class PoofHostView: NSView {
+        var effectID: UUID?
+        var centerPoint: CGPoint = .zero
+        var effectSize: CGSize = .zero
+        var coordinator: Coordinator?
+
+        private var shownEffectID: UUID?
+
+        override var isFlipped: Bool { true }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            showIfPossible()
+        }
+
+        override func layout() {
+            super.layout()
+            showIfPossible()
+        }
+
+        func showIfPossible() {
+            guard let effectID,
+                  shownEffectID != effectID,
+                  let coordinator,
+                  let window,
+                  bounds.width > 0,
+                  bounds.height > 0
+            else { return }
+
+            shownEffectID = effectID
+
+            let windowPoint = convert(NSPoint(x: centerPoint.x, y: centerPoint.y), to: nil)
+            let screenPoint = window.convertPoint(toScreen: windowPoint)
+            let size = effectSize == .zero ? NSZeroSize : effectSize
+
+            if !AppKitPoofEffect.show(
+                at: screenPoint,
+                size: size,
+                delegate: coordinator,
+                didEndSelector: #selector(Coordinator.animationEffectDidEnd(_:))
+            ) {
+                DispatchQueue.main.async { [weak coordinator] in
+                    coordinator?.finish()
+                }
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak coordinator] in
+                coordinator?.finish()
+            }
+        }
+    }
+}
+
+private enum AppKitPoofEffect {
+    private typealias NSShowAnimationEffectFunction = @convention(c) (
+        UInt,
+        NSPoint,
+        NSSize,
+        AnyObject?,
+        Selector?,
+        UnsafeMutableRawPointer?
+    ) -> Void
+
+    static func show(at center: NSPoint, size: NSSize, delegate: AnyObject, didEndSelector: Selector) -> Bool {
+        guard let process = dlopen(nil, RTLD_LAZY),
+              let symbol = dlsym(process, "NSShowAnimationEffect")
+        else {
+            return false
+        }
+
+        let showAnimationEffect = unsafeBitCast(symbol, to: NSShowAnimationEffectFunction.self)
+        showAnimationEffect(
+            10,
+            center,
+            size,
+            delegate,
+            didEndSelector,
+            nil
+        )
+        return true
     }
 }
 
