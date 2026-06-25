@@ -57,6 +57,7 @@ struct UninstallCompletionAnimation: Identifiable, Equatable {
     let item: LaunchItem
     let icon: NSImage
     let center: CGPoint
+    let containerSize: CGSize
     let iconSize: CGFloat
 
     static func == (lhs: UninstallCompletionAnimation, rhs: UninstallCompletionAnimation) -> Bool {
@@ -301,7 +302,7 @@ private struct NativePoofEffectView: NSViewRepresentable {
     let onFinished: () -> Void
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+        let view = FlippedPoofHostView()
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
         return view
@@ -311,14 +312,7 @@ private struct NativePoofEffectView: NSViewRepresentable {
         guard context.coordinator.animationID != animation.id else { return }
         context.coordinator.animationID = animation.id
 
-        DispatchQueue.main.async {
-            let screenPoint = screenPoint(for: animation.center, in: nsView)
-            AppKitPoofEffect.show(at: screenPoint, size: NSSize(width: animation.iconSize, height: animation.iconSize))
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                onFinished()
-            }
-        }
+        showWhenReady(in: nsView, attemptsRemaining: 6)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -329,13 +323,38 @@ private struct NativePoofEffectView: NSViewRepresentable {
         var animationID: UUID?
     }
 
+    private func showWhenReady(in nsView: NSView, attemptsRemaining: Int) {
+        DispatchQueue.main.async {
+            nsView.layoutSubtreeIfNeeded()
+            guard nsView.window != nil,
+                  nsView.bounds.width > 1,
+                  nsView.bounds.height > 1
+            else {
+                guard attemptsRemaining > 0 else {
+                    onFinished()
+                    return
+                }
+                showWhenReady(in: nsView, attemptsRemaining: attemptsRemaining - 1)
+                return
+            }
+
+            let screenPoint = screenPoint(for: animation.center, in: nsView)
+            AppKitPoofEffect.show(at: screenPoint, size: NSSize(width: animation.iconSize, height: animation.iconSize))
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                onFinished()
+            }
+        }
+    }
+
     private func screenPoint(for point: CGPoint, in view: NSView) -> NSPoint {
-        let localPoint = NSPoint(
-            x: point.x,
-            y: max(0, view.bounds.height - point.y)
-        )
+        let localPoint = NSPoint(x: point.x, y: point.y)
         let windowPoint = view.convert(localPoint, to: nil)
         return view.window?.convertPoint(toScreen: windowPoint) ?? windowPoint
+    }
+
+    private final class FlippedPoofHostView: NSView {
+        override var isFlipped: Bool { true }
     }
 }
 

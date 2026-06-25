@@ -1317,6 +1317,7 @@ struct KidoXForegroundLayer: View {
             item: item,
             icon: icon,
             center: center,
+            containerSize: size,
             iconSize: metrics.iconSize
         )
     }
