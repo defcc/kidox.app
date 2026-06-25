@@ -145,6 +145,7 @@ final class KidoXPanelController {
     func hide() {
         guard let panel, panel.isVisible else { return }
         keepsPanelOpenForModalInteraction = false
+        resetTransientPresentationState()
         focusWorkItem?.cancel()
         focusWorkItem = nil
         panel.makeFirstResponder(nil)
@@ -164,6 +165,7 @@ final class KidoXPanelController {
 
     private func hideImmediately(shouldHideAppIfNoOtherWindowIsVisible: Bool) {
         keepsPanelOpenForModalInteraction = false
+        resetTransientPresentationState()
         focusWorkItem?.cancel()
         focusWorkItem = nil
         hideWorkItem?.cancel()
@@ -197,6 +199,10 @@ final class KidoXPanelController {
         Task {
             await store.refreshApplications()
         }
+    }
+
+    private func resetTransientPresentationState() {
+        store.openFolderID = nil
     }
 
     private func handleDefaultsChanged() {
