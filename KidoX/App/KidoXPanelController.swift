@@ -265,6 +265,9 @@ final class KidoXPanelController {
             },
             onModalInteractionChanged: { [weak self] isActive in
                 self?.keepsPanelOpenForModalInteraction = isActive
+            },
+            onRestoreFocusAfterModalInteraction: { [weak self] in
+                self?.restoreFocusAfterModalInteraction()
             }
         ))
         foregroundHosting.frame = containerFrame
@@ -422,6 +425,24 @@ final class KidoXPanelController {
     private func requestSearchFocusIfVisible(_ panel: NSPanel) {
         guard panel.isVisible else { return }
         store.searchFocusRequestID += 1
+    }
+
+    private func restoreFocusAfterModalInteraction() {
+        guard let panel, panel.isVisible else { return }
+
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
+
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
+
+        DispatchQueue.main.async { [weak self, weak panel] in
+            guard let self, let panel, panel.isVisible else { return }
+            panel.makeKeyAndOrderFront(nil)
+            self.requestSearchFocusIfVisible(panel)
+        }
     }
 
     private func prewarmSearchFieldEditor(_ panel: NSPanel) {

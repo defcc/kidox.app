@@ -97,6 +97,7 @@ struct UninstallPanelRouteView: NSViewRepresentable {
         private var popover: NSPopover?
         private var hostingController: NSHostingController<UninstallPopoverContent>?
         private var representedSessionID: UUID?
+        private var userDismissedSessionID: UUID?
         private var representedAnchor = CGPoint.zero
         private var isClosingFromSwiftUI = false
         private var onCancel: (() -> Void)?
@@ -136,7 +137,15 @@ struct UninstallPanelRouteView: NSViewRepresentable {
             guard let popover else { return }
             let anchorChanged = distance(from: representedAnchor, to: parent.anchor) > 2
             let sessionChanged = representedSessionID != parent.session.id
+            if sessionChanged {
+                userDismissedSessionID = nil
+            }
             representedSessionID = parent.session.id
+
+            guard userDismissedSessionID != parent.session.id else {
+                representedAnchor = parent.anchor
+                return
+            }
 
             if popover.isShown {
                 if anchorChanged || sessionChanged {
@@ -159,10 +168,12 @@ struct UninstallPanelRouteView: NSViewRepresentable {
             popover = nil
             hostingController = nil
             representedSessionID = nil
+            userDismissedSessionID = nil
         }
 
         func popoverDidClose(_ notification: Notification) {
             guard !isClosingFromSwiftUI else { return }
+            userDismissedSessionID = representedSessionID
             onCancel?()
         }
 

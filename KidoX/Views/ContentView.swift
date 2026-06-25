@@ -216,6 +216,11 @@ private struct PageTurnAnimationRequest: Equatable {
     let targetPage: Int
 }
 
+private struct GridCompactionAnimationRequest: Equatable {
+    let id: UUID
+    let removedItemID: LaunchItem.ID
+}
+
 struct KidoXBackgroundLayer: View {
     var body: some View {
         KidoXBackground()
@@ -369,6 +374,7 @@ struct KidoXForegroundLayer: View {
     let onOpenSettings: () -> Void
     let onOpenLicenseSettings: () -> Void
     let onModalInteractionChanged: (Bool) -> Void
+    let onRestoreFocusAfterModalInteraction: () -> Void
     @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage(KidoXLaunchSort.storageKey) private var launchSortRaw = KidoXLaunchSort.default.rawValue
     @AppStorage("ClyAppLicense.status") private var licenseStatus = "Free"
@@ -413,6 +419,7 @@ struct KidoXForegroundLayer: View {
     @State private var keyboardSelectionID: LaunchItem.ID?
     @State private var uninstallSession: UninstallPanelSession?
     @State private var uninstallCompletionAnimation: UninstallCompletionAnimation?
+    @State private var gridCompactionAnimationRequest: GridCompactionAnimationRequest?
     @State private var hasFullDiskAccess = Self.detectFullDiskAccess()
 
     private let dragActivationDistance: CGFloat = 6
@@ -519,12 +526,24 @@ struct KidoXForegroundLayer: View {
                         animation: uninstallCompletionAnimation,
                         onFinished: {
                             guard self.uninstallCompletionAnimation?.id == uninstallCompletionAnimation.id else { return }
+                            let compactionRequest = GridCompactionAnimationRequest(
+                                id: UUID(),
+                                removedItemID: uninstallCompletionAnimation.item.id
+                            )
+                            gridCompactionAnimationRequest = compactionRequest
                             self.uninstallCompletionAnimation = nil
-                            let pageMutationResult = store.removeUninstalledApplicationRecord(uninstallCompletionAnimation.item)
-                            applyPageMutationResult(pageMutationResult)
-                            reconcileOpenFolderAfterUninstall()
-                            ensureKeyboardSelectionIsValid()
+                            withAnimation(.snappy(duration: 0.22)) {
+                                let pageMutationResult = store.removeUninstalledApplicationRecord(uninstallCompletionAnimation.item)
+                                applyPageMutationResult(pageMutationResult)
+                                reconcileOpenFolderAfterUninstall()
+                                ensureKeyboardSelectionIsValid()
+                            }
                             focusSearchField()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                if gridCompactionAnimationRequest?.id == compactionRequest.id {
+                                    gridCompactionAnimationRequest = nil
+                                }
+                            }
                         }
                     )
                     .frame(width: proxy.size.width, height: proxy.size.height)
@@ -780,6 +799,7 @@ struct KidoXForegroundLayer: View {
             showsProBadges: !isPro,
             rootDragStartRequest: rootDragStartRequest,
             pageTurnAnimationRequest: pageTurnAnimationRequest,
+            compactionAnimationRequest: gridCompactionAnimationRequest,
             visuallyHiddenItemID: uninstallCompletionAnimation?.item.id,
             onPageTurn: { page in
                 moveKeyboardSelectionToFirstItem(on: page)
@@ -1240,6 +1260,7 @@ struct KidoXForegroundLayer: View {
 
         do {
             let uninstallResult = try await store.uninstallApplicationKeepingRecord(item, plan: plan)
+            onRestoreFocusAfterModalInteraction()
             if uninstallResult.hasDataRemovalFailures {
                 let pageMutationResult = store.removeUninstalledApplicationRecord(item)
                 applyPageMutationResult(pageMutationResult)
@@ -1259,6 +1280,7 @@ struct KidoXForegroundLayer: View {
             }
             return true
         } catch {
+            onRestoreFocusAfterModalInteraction()
             uninstallSession?.phase = .failed(error.localizedDescription)
             return true
         }
@@ -1267,6 +1289,7 @@ struct KidoXForegroundLayer: View {
     @MainActor
     private func retryFailedUninstallDataRemovals(_ result: ApplicationUninstallResult) async -> Bool {
         let updatedResult = await store.retryFailedUninstallDataRemovals(from: result)
+        onRestoreFocusAfterModalInteraction()
         uninstallSession?.phase = .completed(updatedResult)
         return true
     }
@@ -2092,7 +2115,7 @@ struct KidoXForegroundLayer: View {
                     renameAction: nil,
                     ungroupAction: nil
                 )
-                .opacity(isPlaceholder || item.id == uninstallCompletionAnimation?.item.id ? 0 : 1)
+                .opacity(isPlaceholder || item.id == uninstallCompletionAnimation?.item.id || item.id == gridCompactionAnimationRequest?.removedItemID ? 0 : 1)
                 .allowsHitTesting(!isPlaceholder && item.id != uninstallCompletionAnimation?.item.id)
                 .position(
                     folderTilePosition(
@@ -4875,6 +4898,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
     let showsProBadges: Bool
     let rootDragStartRequest: RootDragStartRequest?
     let pageTurnAnimationRequest: PageTurnAnimationRequest?
+    let compactionAnimationRequest: GridCompactionAnimationRequest?
     let visuallyHiddenItemID: LaunchItem.ID?
     let onPageTurn: (Int) -> Void
     let onCreateBoundaryPage: (Int) -> Int?
@@ -4967,7 +4991,8 @@ private struct AppKitPagedGridView: NSViewRepresentable {
             gridTopY: gridTopY,
             gridBottomY: gridBottomY,
             isReorderingEnabled: isReorderingEnabled,
-            pageTurnAnimationRequest: pageTurnAnimationRequest
+            pageTurnAnimationRequest: pageTurnAnimationRequest,
+            compactionAnimationRequest: compactionAnimationRequest
         )
         nsView.updateSelection(itemID: selectedItemID)
     }
@@ -5013,6 +5038,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     var rootDragStartRequest: RootDragStartRequest?
     var visuallyHiddenItemID: LaunchItem.ID?
     private var handledPageTurnAnimationRequestID: UUID?
+    private var handledCompactionAnimationRequestID: UUID?
 
     // 当搜索态触发拖拽时记下来，等下一次 configure (退出搜索后) 再实际开始拖拽
     private var pendingSearchDragItem: LaunchItem?
@@ -5350,7 +5376,8 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         gridTopY: CGFloat,
         gridBottomY: CGFloat,
         isReorderingEnabled: Bool,
-        pageTurnAnimationRequest: PageTurnAnimationRequest?
+        pageTurnAnimationRequest: PageTurnAnimationRequest?,
+        compactionAnimationRequest: GridCompactionAnimationRequest?
     ) {
         let previousTileMetrics = tileMetrics
         let shouldRebuild = self.pages != pages
@@ -5374,6 +5401,30 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
 
         if willAnimatePageTurn {
             handledPageTurnAnimationRequestID = pageTurnAnimationRequest?.id
+        }
+        let shouldPrepareCompactionAnimation = compactionAnimationRequest != nil
+            && compactionAnimationRequest?.id != handledCompactionAnimationRequestID
+            && compactionAnimationRequest.map { request in
+                tileRecords.contains(where: { $0.item.id == request.removedItemID })
+                    && !pages.contains { page in
+                        page.contains { $0.id == request.removedItemID }
+                    }
+            } == true
+        if let compactionAnimationRequest, shouldPrepareCompactionAnimation {
+            handledCompactionAnimationRequestID = compactionAnimationRequest.id
+            pendingDropCompactionSourceFrames = Dictionary(
+                uniqueKeysWithValues: tileRecords
+                    .filter { $0.item.id != compactionAnimationRequest.removedItemID }
+                    .map {
+                        (
+                            $0.item.id,
+                            PendingDropCompactionSourceFrame(
+                                frame: $0.frame,
+                                pageIndex: $0.pageIndex
+                            )
+                        )
+                    }
+            )
         }
 
         self.pages = pages
