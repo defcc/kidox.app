@@ -2355,32 +2355,15 @@ struct KidoXForegroundLayer: View {
             targetPage: resolvedPage
         )
 
-        folderPressedItemID = nil
-        folderDraggingItemID = nil
-        folderDraggedItem = nil
-        folderDragLocation = .zero
-        folderDragFingerOffset = .zero
-        folderOrderOverride = nil
-
-        withAnimation(Self.folderMorphAnimation) {
-            folderOverlayIsExpanded = false
-            folderOverlayProgress = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.folderMorphDuration + 0.02) {
-            guard !folderOverlayIsExpanded else { return }
-            store.openFolderID = nil
-        }
+        closeFolder()
     }
 
     private func commitFolderDragExit(_ item: LaunchItem, at panelPoint: CGPoint, size: CGSize) {
         guard folderDraggingItemID == item.id else { return }
         let targetSlot = rootSlotForFolderExit(at: panelPoint, size: size)
         applyPageMutationResult(store.moveItemToRootPage(itemID: item.id, toPage: currentPage, toSlot: targetSlot))
-        withAnimation(.snappy(duration: 0.18)) {
-            resetFolderDragState()
-            resetDragState()
-            store.openFolderID = nil
-        }
+        resetDragState()
+        closeFolder()
     }
 
     private func folderDisplayOrder(_ children: [LaunchItem]) -> [LaunchItem] {
