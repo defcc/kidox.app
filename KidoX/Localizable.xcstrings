@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "%@" : {
-
-    },
     "%@ Dock icon" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -208,6 +205,57 @@
         }
       }
     },
+    "Administrator permission request failed with error %@." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者権限のリクエストに失敗しました（エラー %@）。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理员授权请求失败，错误 %@。"
+          }
+        }
+      }
+    },
+    "Administrator permission request failed." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者権限のリクエストに失敗しました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理员授权请求失败。"
+          }
+        }
+      }
+    },
+    "Administrator permission was cancelled." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者権限がキャンセルされました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理员授权已取消。"
+          }
+        }
+      }
+    },
     "Advanced" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -259,6 +307,40 @@
         }
       }
     },
+    "Allow KidoX in Privacy & Security > App Management, then retry these sandbox data items." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「プライバシーとセキュリティ」>「App管理」でKidoXを許可してから、これらのサンドボックスデータ項目を再試行してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在“隐私与安全性”>“应用管理”中允许 KidoX，然后重试这些沙盒数据项。"
+          }
+        }
+      }
+    },
+    "Allow KidoX in Privacy & Security > Full Disk Access, then retry these sandbox data items." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「プライバシーとセキュリティ」>「フルディスクアクセス」でKidoXを許可してから、これらのサンドボックスデータ項目を再試行してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在“隐私与安全性”>“完全磁盘访问权限”中允许 KidoX，然后重试这些沙盒数据项。"
+          }
+        }
+      }
+    },
     "And %d more." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -306,6 +388,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "App 数据"
+          }
+        }
+      }
+    },
+    "App Data permission required" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appデータの権限が必要です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要 App 数据权限"
           }
         }
       }
@@ -459,6 +558,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "模糊"
+          }
+        }
+      }
+    },
+    "Bottom Left" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左下"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左下角"
+          }
+        }
+      }
+    },
+    "Bottom Right" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右下"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右下角"
           }
         }
       }
@@ -663,6 +796,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "复制"
+          }
+        }
+      }
+    },
+    "Could not create administrator permission request." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者権限のリクエストを作成できませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法创建管理员授权请求。"
+          }
+        }
+      }
+    },
+    "Could not move %@ to Trash. %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ をゴミ箱に移動できませんでした。%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法将 %@ 移到废纸篓。%@"
           }
         }
       }
@@ -1024,23 +1191,6 @@
         }
       }
     },
-    "App Data permission required" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appデータの権限が必要です"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要 App 数据权限"
-          }
-        }
-      }
-    },
     "Full Disk Access required" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1058,210 +1208,6 @@
         }
       }
     },
-    "KidoX needs permission to access data from other apps before it can remove sandbox app data." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "サンドボックス化されたAppデータを削除するには、KidoXにほかのAppのデータへアクセスする権限が必要です。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KidoX 需要访问其他 App 数据的权限，才能删除这些沙盒 App 数据。"
-          }
-        }
-      }
-    },
-    "Allow KidoX in Privacy & Security > Full Disk Access, then retry these sandbox data items." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「プライバシーとセキュリティ」>「フルディスクアクセス」でKidoXを許可してから、これらのサンドボックスデータ項目を再試行してください。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请在“隐私与安全性”>“完全磁盘访问权限”中允许 KidoX，然后重试这些沙盒数据项。"
-          }
-        }
-      }
-    },
-    "Allow KidoX in Privacy & Security > App Management, then retry these sandbox data items." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「プライバシーとセキュリティ」>「App管理」でKidoXを許可してから、これらのサンドボックスデータ項目を再試行してください。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请在“隐私与安全性”>“应用管理”中允许 KidoX，然后重试这些沙盒数据项。"
-          }
-        }
-      }
-    },
-    "Some sandbox data may require Full Disk Access." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一部のサンドボックスデータにはフルディスクアクセスが必要な場合があります。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分沙盒数据可能需要完全磁盘访问权限。"
-          }
-        }
-      }
-    },
-    "Some sandbox data may require App Data permission." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一部のサンドボックスデータにはAppデータの権限が必要な場合があります。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "部分沙盒数据可能需要 App 数据权限。"
-          }
-        }
-      }
-    },
-    "Requires Permission" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "権限が必要"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要权限"
-          }
-        }
-      }
-    },
-    "Grant Permission" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "権限を付与"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "授权"
-          }
-        }
-      }
-    },
-    "Open Full Disk Access" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フルディスクアクセスを開く"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开完全磁盘访问权限"
-          }
-        }
-      }
-    },
-    "Open App Management" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "App管理を開く"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开应用管理"
-          }
-        }
-      }
-    },
-    "Open Privacy Settings" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "プライバシー設定を開く"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开隐私设置"
-          }
-        }
-      }
-    },
-    "Retry Failed Items" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "失敗した項目を再試行"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重试失败项"
-          }
-        }
-      }
-    },
-    "Retrying..." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再試行中..."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重试..."
-          }
-        }
-      }
-    },
     "General" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1275,6 +1221,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "通用"
+          }
+        }
+      }
+    },
+    "Glass" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ガラス"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "玻璃"
           }
         }
       }
@@ -1309,6 +1272,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "授予辅助功能权限后，无需修改系统键盘设置即可捕获 F4 或 Launchpad 键。"
+          }
+        }
+      }
+    },
+    "Grant Permission" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "権限を付与"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授权"
           }
         }
       }
@@ -1632,6 +1612,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "KidoX 打开时会覆盖菜单栏。"
+          }
+        }
+      }
+    },
+    "KidoX needs permission to access data from other apps before it can remove sandbox app data." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンドボックス化されたAppデータを削除するには、KidoXにほかのAppのデータへアクセスする権限が必要です。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX 需要访问其他 App 数据的权限，才能删除这些沙盒 App 数据。"
           }
         }
       }
@@ -2078,6 +2075,23 @@
         }
       }
     },
+    "None" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "なし"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        }
+      }
+    },
     "OK" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2112,6 +2126,40 @@
         }
       }
     },
+    "Open App Management" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App管理を開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开应用管理"
+          }
+        }
+      }
+    },
+    "Open Full Disk Access" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセスを開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开完全磁盘访问权限"
+          }
+        }
+      }
+    },
     "Open KidoX with the F4 or Launchpad key, without changing system keyboard settings." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2125,6 +2173,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无需修改系统键盘设置，即可用 F4 或 Launchpad 键打开 KidoX。"
+          }
+        }
+      }
+    },
+    "Open Privacy Settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシー設定を開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开隐私设置"
           }
         }
       }
@@ -2387,6 +2452,23 @@
         }
       }
     },
+    "Requires Permission" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "権限が必要"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要权限"
+          }
+        }
+      }
+    },
     "Restore" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2434,6 +2516,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "恢复后的 App 会回到隐藏前所在页面或文件夹。手动添加的 App 会恢复到第一个可用页面。"
+          }
+        }
+      }
+    },
+    "Retry Failed Items" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失敗した項目を再試行"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试失败项"
+          }
+        }
+      }
+    },
+    "Retrying..." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行中..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重试..."
           }
         }
       }
@@ -2693,6 +2809,23 @@
         }
       }
     },
+    "Solid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "単色"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纯色"
+          }
+        }
+      }
+    },
     "Solid colors, custom colors, and custom image backgrounds." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2706,6 +2839,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "纯色、自定义颜色和自定义图片背景。"
+          }
+        }
+      }
+    },
+    "Some sandbox data may require App Data permission." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のサンドボックスデータにはAppデータの権限が必要な場合があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分沙盒数据可能需要 App 数据权限。"
+          }
+        }
+      }
+    },
+    "Some sandbox data may require Full Disk Access." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のサンドボックスデータにはフルディスクアクセスが必要な場合があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分沙盒数据可能需要完全磁盘访问权限。"
           }
         }
       }
@@ -2846,6 +3013,23 @@
         }
       }
     },
+    "The app was not moved to Trash." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appはゴミ箱に移動されませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个 App 没有被移到废纸篓。"
+          }
+        }
+      }
+    },
     "The app was removed, but some app data could not be deleted." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2893,6 +3077,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "将从这台 Mac 删除 App 和它的相关数据。"
+          }
+        }
+      }
+    },
+    "Top Left" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左上"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左上角"
+          }
+        }
+      }
+    },
+    "Top Right" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右上"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右上角"
           }
         }
       }
@@ -3118,6 +3336,74 @@
         }
       }
     },
+    "Use a custom image from this Mac." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このMacのカスタム画像を使用します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用这台 Mac 上的自定义图片。"
+          }
+        }
+      }
+    },
+    "Use a fixed dark background." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定のダーク背景を使用します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用固定深色背景。"
+          }
+        }
+      }
+    },
+    "Use a live macOS material background." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブmacOSマテリアル背景を使用します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用实时 macOS 材质背景。"
+          }
+        }
+      }
+    },
+    "Use the current desktop wallpaper." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在のデスクトップ壁紙を使用します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用当前桌面壁纸。"
+          }
+        }
+      }
+    },
     "Use this only when sharing logs with support. Leave it off for normal use." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3169,210 +3455,6 @@
         }
       }
     },
-    "Website" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ウェブサイト"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "网站"
-          }
-        }
-      }
-    },
-    "Could not move %@ to Trash. %@" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ をゴミ箱に移動できませんでした。%@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法将 %@ 移到废纸篓。%@"
-          }
-        }
-      }
-    },
-    "Could not create administrator permission request." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理者権限のリクエストを作成できませんでした。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法创建管理员授权请求。"
-          }
-        }
-      }
-    },
-    "The app was not moved to Trash." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appはゴミ箱に移動されませんでした。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这个 App 没有被移到废纸篓。"
-          }
-        }
-      }
-    },
-    "Administrator permission was cancelled." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理者権限がキャンセルされました。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理员授权已取消。"
-          }
-        }
-      }
-    },
-    "Administrator permission request failed." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理者権限のリクエストに失敗しました。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理员授权请求失败。"
-          }
-        }
-      }
-    },
-    "Administrator permission request failed with error %@." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理者権限のリクエストに失敗しました（エラー %@）。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理员授权请求失败，错误 %@。"
-          }
-        }
-      }
-    },
-    "None" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "なし"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无"
-          }
-        }
-      }
-    },
-    "Top Left" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左上"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左上角"
-          }
-        }
-      }
-    },
-    "Top Right" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "右上"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "右上角"
-          }
-        }
-      }
-    },
-    "Bottom Left" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左下"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "左下角"
-          }
-        }
-      }
-    },
-    "Bottom Right" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "右下"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "右下角"
-          }
-        }
-      }
-    },
     "Wallpaper" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3390,104 +3472,19 @@
         }
       }
     },
-    "Glass" : {
+    "Website" : {
       "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ガラス"
+            "value" : "ウェブサイト"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "玻璃"
-          }
-        }
-      }
-    },
-    "Solid" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "単色"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "纯色"
-          }
-        }
-      }
-    },
-    "Use the current desktop wallpaper." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "現在のデスクトップ壁紙を使用します。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用当前桌面壁纸。"
-          }
-        }
-      }
-    },
-    "Use a custom image from this Mac." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このMacのカスタム画像を使用します。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用这台 Mac 上的自定义图片。"
-          }
-        }
-      }
-    },
-    "Use a live macOS material background." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ライブmacOSマテリアル背景を使用します。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用实时 macOS 材质背景。"
-          }
-        }
-      }
-    },
-    "Use a fixed dark background." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "固定のダーク背景を使用します。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用固定深色背景。"
+            "value" : "网站"
           }
         }
       }
