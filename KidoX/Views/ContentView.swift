@@ -281,6 +281,7 @@ private func proMenuAttributedTitle(_ title: String, showsPro: Bool) -> NSAttrib
 private struct SettingsMenuClickTarget: NSViewRepresentable {
     let selectedSort: KidoXLaunchSort
     let isPro: Bool
+    let isPaidLicense: Bool
     let onOpenSettings: () -> Void
     let onPurchasePro: () -> Void
     let onActivateLicense: () -> Void
@@ -339,10 +340,10 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
             menu.addItem(.separator())
             addItem(
                 to: menu,
-                title: KidoXL10n.ui(parent.isPro ? "Purchase More License" : "Purchase Pro"),
+                title: KidoXL10n.ui(parent.isPaidLicense ? "Purchase More License" : "Purchase Pro"),
                 action: #selector(purchasePro(_:))
             )
-            if parent.isPro {
+            if parent.isPaidLicense {
                 addDisabledItem(to: menu, title: KidoXL10n.ui("License Activated"))
             } else {
                 addItem(to: menu, title: KidoXL10n.ui("Activate License"), action: #selector(activateLicense(_:)))
@@ -407,6 +408,7 @@ struct KidoXForegroundLayer: View {
     @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage(KidoXLaunchSort.storageKey) private var launchSortRaw = KidoXLaunchSort.default.rawValue
     @AppStorage("ClyAppLicense.status") private var licenseStatus = "Free"
+    @AppStorage("ClyAppLicense.entitlementType") private var licenseEntitlementType = ""
     @State private var searchFocused = false
     @State private var searchTextIsComposing = false
     @State private var currentPage = 0
@@ -478,6 +480,10 @@ struct KidoXForegroundLayer: View {
 
     private var isPro: Bool {
         licenseStatus == "active"
+    }
+
+    private var isPaidLicense: Bool {
+        isPro && licenseEntitlementType != "trial"
     }
 
     var body: some View {
@@ -713,6 +719,7 @@ struct KidoXForegroundLayer: View {
             SettingsMenuClickTarget(
                 selectedSort: launchSort,
                 isPro: isPro,
+                isPaidLicense: isPaidLicense,
                 onOpenSettings: onOpenSettings,
                 onPurchasePro: {
                     NSWorkspace.shared.open(KidoXAppConfiguration.purchaseURL)

@@ -126,14 +126,14 @@ final class StatusItemController: NSObject {
 
 
         let purchaseItem = makeMenuItem(
-            title: KidoXL10n.ui(isPro ? "Purchase More License" : "Purchase Pro"),
+            title: KidoXL10n.ui(isPaidLicense ? "Purchase More License" : "Purchase Pro"),
             symbolName: "cart",
             action: #selector(purchasePro)
         )
         purchaseItem.target = self
         menu.addItem(purchaseItem)
 
-        if isPro {
+        if isPaidLicense {
             let licenseActivatedItem = makeMenuItem(title: KidoXL10n.ui("License Activated"), symbolName: "checkmark.seal", action: nil)
             licenseActivatedItem.isEnabled = false
             menu.addItem(licenseActivatedItem)
@@ -179,6 +179,10 @@ final class StatusItemController: NSObject {
 
     private var isPro: Bool {
         UserDefaults.standard.string(forKey: "ClyAppLicense.status") == "active"
+    }
+
+    private var isPaidLicense: Bool {
+        isPro && UserDefaults.standard.string(forKey: "ClyAppLicense.entitlementType") != "trial"
     }
 
     @objc private func showAbout() {
