@@ -549,6 +549,13 @@ struct KidoXForegroundLayer: View {
                         },
                         onOpenPrivacySettings: {
                             openAppDataPrivacySettings()
+                        },
+                        onRevealInFinder: { item in
+                            store.revealInFinder(item)
+                        },
+                        onUpgradeToPro: {
+                            setUninstallSession(nil)
+                            onOpenLicenseSettings()
                         }
                     )
                     .frame(width: proxy.size.width, height: proxy.size.height)
@@ -1266,6 +1273,10 @@ struct KidoXForegroundLayer: View {
                 item: item,
                 phase: .failed("\(item.effectiveDisplayName) is a protected macOS system app and cannot be moved to Trash by KidoX.")
             ))
+            return
+        }
+        guard isPro || ApplicationUninstaller.canMoveApplicationToTrashWithoutPrivileges(at: item.url) else {
+            setUninstallSession(UninstallPanelSession(item: item, phase: .blockedForFree))
             return
         }
 

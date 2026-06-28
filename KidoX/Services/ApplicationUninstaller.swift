@@ -1,5 +1,7 @@
 import AppKit
+import Darwin
 import Foundation
+import OSLog
 
 struct ApplicationUninstallTarget: Hashable, Sendable {
     let url: URL
@@ -92,13 +94,14 @@ private final class TrashMoveContinuationBox: @unchecked Sendable {
         self.continuation = continuation
     }
 
-    func resume(_ result: Result<URL?, Error>) {
+    @discardableResult
+    func resume(_ result: Result<URL?, Error>) -> Bool {
         lock.lock()
         let continuation = self.continuation
         self.continuation = nil
         lock.unlock()
 
-        guard let continuation else { return }
+        guard let continuation else { return false }
 
         switch result {
         case .success(let url):
@@ -106,12 +109,35 @@ private final class TrashMoveContinuationBox: @unchecked Sendable {
         case .failure(let error):
             continuation.resume(throwing: error)
         }
+        return true
     }
 }
 
 struct ApplicationUninstaller: Sendable {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.clyapps.KidoX",
+        category: "Uninstaller"
+    )
+    private let privilegedHelperClient = KidoXPrivilegedHelperClient()
+
     static func canUninstallApplication(at url: URL) -> Bool {
         !isProtectedSystemApplicationURL(url)
+    }
+
+    static func canMoveApplicationToTrashWithoutPrivileges(at url: URL) -> Bool {
+        guard canUninstallApplication(at: url),
+              FileManager.default.fileExists(atPath: url.path),
+              FileManager.default.isWritableFile(atPath: url.deletingLastPathComponent().path),
+              FileManager.default.isWritableFile(atPath: url.path) else {
+            return false
+        }
+
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let ownerID = attributes[.ownerAccountID] as? NSNumber else {
+            return false
+        }
+
+        return ownerID.uint32Value == getuid()
     }
 
     func makePlan(for item: LaunchItem) async throws -> ApplicationUninstallPlan {
@@ -128,17 +154,24 @@ struct ApplicationUninstaller: Sendable {
             throw ApplicationUninstallError.missingApplication(appURL)
         }
 
+        let shouldCollectDataTargets = Self.isProLicenseActive
+
         return await Task.detached(priority: .utility) {
             let fileManager = FileManager.default
-            let metadata = Self.uninstallMetadata(
-                mainBundleIdentifier: bundleIdentifier,
-                appURL: appURL,
-                fileManager: fileManager
-            )
-            let existingDataURLs = Self.dataURLs(metadata: metadata, fileManager: fileManager)
-                .filter { fileManager.fileExists(atPath: $0.path) }
-            let dataTargets = Self.deduplicatedFileSystemURLs(existingDataURLs)
-                .map { ApplicationUninstallTarget(url: $0, byteCount: Self.allocatedByteCount(at: $0)) }
+            let dataTargets: [ApplicationUninstallTarget]
+            if shouldCollectDataTargets {
+                let metadata = Self.uninstallMetadata(
+                    mainBundleIdentifier: bundleIdentifier,
+                    appURL: appURL,
+                    fileManager: fileManager
+                )
+                let existingDataURLs = Self.dataURLs(metadata: metadata, fileManager: fileManager)
+                    .filter { fileManager.fileExists(atPath: $0.path) }
+                dataTargets = Self.deduplicatedFileSystemURLs(existingDataURLs)
+                    .map { ApplicationUninstallTarget(url: $0, byteCount: Self.allocatedByteCount(at: $0)) }
+            } else {
+                dataTargets = []
+            }
 
             return ApplicationUninstallPlan(
                 bundleIdentifier: bundleIdentifier,
@@ -162,10 +195,15 @@ struct ApplicationUninstaller: Sendable {
             throw ApplicationUninstallError.missingApplication(plan.appURL)
         }
 
-        await Self.prepareAppDataAccessIfNeeded(for: plan.dataTargets)
+        Self.logger.info(
+            "Starting uninstall for app '\(plan.appURL.lastPathComponent, privacy: .public)' at '\(plan.appURL.path, privacy: .public)', bundleIdentifier=\(plan.bundleIdentifier, privacy: .public), dataTargets=\(plan.dataTargets.count, privacy: .public)"
+        )
+
+        let dataTargets = Self.isProLicenseActive ? plan.dataTargets : []
+        await Self.prepareAppDataAccessIfNeeded(for: dataTargets)
 
         let trashedAppURL = try await moveApplicationToTrash(plan.appURL)
-        let dataRemoval = await Self.removeUserData(targets: plan.dataTargets)
+        let dataRemoval = await removeUserDataWithPrivilegedFallback(targets: dataTargets)
 
         return ApplicationUninstallResult(
             bundleIdentifier: plan.bundleIdentifier,
@@ -178,10 +216,12 @@ struct ApplicationUninstaller: Sendable {
     }
 
     func retryFailedDataRemovals(from result: ApplicationUninstallResult) async -> ApplicationUninstallResult {
+        guard Self.isProLicenseActive else { return result }
+
         let targets = result.failedDataRemovals.map(\.target)
         guard !targets.isEmpty else { return result }
 
-        let dataRemoval = await Self.removeUserData(targets: targets)
+        let dataRemoval = await removeUserDataWithPrivilegedFallback(targets: targets)
         return ApplicationUninstallResult(
             bundleIdentifier: result.bundleIdentifier,
             appURL: result.appURL,
@@ -195,132 +235,96 @@ struct ApplicationUninstaller: Sendable {
     private func moveApplicationToTrash(_ url: URL) async throws -> URL? {
         do {
             return try await recycleApplicationToTrash(url)
-        } catch ApplicationUninstallError.trashFailed {
-            return try await moveApplicationToTrashWithAdministratorPrivileges(url)
+        } catch ApplicationUninstallError.trashFailed(_, let reason) {
+            Self.logger.warning(
+                "NSWorkspace recycle failed for '\(url.path, privacy: .public)'; trying privileged helper. reason=\(reason, privacy: .public)"
+            )
+            return try await moveApplicationToTrashWithPrivilegedHelper(url)
         } catch ApplicationUninstallError.trashTimedOut {
-            return try await moveApplicationToTrashWithAdministratorPrivileges(url)
+            Self.logger.warning(
+                "NSWorkspace recycle timed out for '\(url.path, privacy: .public)'; trying privileged helper."
+            )
+            return try await moveApplicationToTrashWithPrivilegedHelper(url)
         } catch {
             throw error
+        }
+    }
+
+    private func moveApplicationToTrashWithPrivilegedHelper(_ url: URL) async throws -> URL? {
+        guard Self.isProLicenseActive else {
+            Self.logger.warning(
+                "Privileged helper removal is unavailable for free license. app='\(url.path, privacy: .public)'"
+            )
+            throw ApplicationUninstallError.trashFailed(
+                url,
+                KidoXL10n.ui("Advanced app removal requires KidoX Pro.")
+            )
+        }
+
+        do {
+            let destinationURL = try await privilegedHelperClient.moveApplicationToTrash(url)
+            Self.logger.info(
+                "Privileged helper moved '\(url.path, privacy: .public)' to '\(destinationURL.path, privacy: .public)'"
+            )
+            return destinationURL
+        } catch {
+            Self.logger.error(
+                "Privileged helper failed for '\(url.path, privacy: .public)'. \(Self.errorSummary(error), privacy: .public)"
+            )
+            throw ApplicationUninstallError.trashFailed(
+                url,
+                KidoXL10n.ui("Install KidoX Helper in Settings > Uninstaller to remove apps that require administrator permission.")
+            )
         }
     }
 
     private func recycleApplicationToTrash(_ url: URL) async throws -> URL? {
         try await withCheckedThrowingContinuation { continuation in
             let continuationBox = TrashMoveContinuationBox(continuation)
+            Self.logger.info("Trying NSWorkspace recycle for '\(url.path, privacy: .public)'")
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
-                continuationBox.resume(.failure(ApplicationUninstallError.trashTimedOut(url)))
+                if continuationBox.resume(.failure(ApplicationUninstallError.trashTimedOut(url))) {
+                    Self.logger.error("NSWorkspace recycle timed out after 20 seconds for '\(url.path, privacy: .public)'")
+                }
             }
 
             NSWorkspace.shared.recycle([url]) { newURLs, error in
                 if let error {
-                    continuationBox.resume(.failure(ApplicationUninstallError.trashFailed(
+                    let errorSummary = Self.errorSummary(error)
+                    if continuationBox.resume(.failure(ApplicationUninstallError.trashFailed(
                         url,
                         error.localizedDescription
-                    )))
+                    ))) {
+                        Self.logger.error(
+                            "NSWorkspace recycle returned error for '\(url.path, privacy: .public)': \(errorSummary, privacy: .public)"
+                        )
+                    }
                     return
                 }
 
-                continuationBox.resume(.success(newURLs[url]))
+                let trashedURL = newURLs[url]
+                if continuationBox.resume(.success(trashedURL)) {
+                    Self.logger.info(
+                        "NSWorkspace recycle succeeded for '\(url.path, privacy: .public)', trashedURL='\(trashedURL?.path ?? "<unknown>", privacy: .public)'"
+                    )
+                }
             }
         }
     }
 
-    private func moveApplicationToTrashWithAdministratorPrivileges(_ url: URL) async throws -> URL? {
-        let trashURL = try Self.userTrashURL()
-        let destinationURL = Self.uniqueTrashDestination(for: url, in: trashURL)
-        let command = [
-            "/bin/mkdir -p \(Self.shellQuoted(trashURL.path))",
-            "/bin/mv -n \(Self.shellQuoted(url.path)) \(Self.shellQuoted(destinationURL.path))"
-        ].joined(separator: " && ")
-
-        let source = "do shell script \(Self.appleScriptStringLiteral(command)) with administrator privileges"
-
-        var errorInfo: NSDictionary?
-        guard let script = NSAppleScript(source: source) else {
-            throw ApplicationUninstallError.trashFailed(
-                url,
-                KidoXL10n.ui("Could not create administrator permission request.")
-            )
-        }
-
-        script.executeAndReturnError(&errorInfo)
-
-        if let errorInfo {
-            if !FileManager.default.fileExists(atPath: url.path) {
-                return destinationURL
-            }
-            throw ApplicationUninstallError.trashFailed(url, Self.administratorScriptErrorDescription(errorInfo))
-        }
-
-        guard !FileManager.default.fileExists(atPath: url.path) else {
-            throw ApplicationUninstallError.trashFailed(
-                url,
-                KidoXL10n.ui("The app was not moved to Trash.")
-            )
-        }
-
-        return destinationURL
+    private static func errorSummary(_ error: Error) -> String {
+        let nsError = error as NSError
+        let failureReason = nsError.localizedFailureReason.map { " failureReason=\($0)" } ?? ""
+        let recoverySuggestion = nsError.localizedRecoverySuggestion.map { " recoverySuggestion=\($0)" } ?? ""
+        let underlying = (nsError.userInfo[NSUnderlyingErrorKey] as? NSError).map {
+            " underlyingDomain=\($0.domain) underlyingCode=\($0.code) underlyingDescription=\($0.localizedDescription)"
+        } ?? ""
+        return "domain=\(nsError.domain) code=\(nsError.code) description=\(nsError.localizedDescription)\(failureReason)\(recoverySuggestion)\(underlying)"
     }
 
-    private static func userTrashURL() throws -> URL {
-        if let trashURL = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first {
-            return trashURL
-        }
-
-        let fallbackTrashURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
-        return fallbackTrashURL
-    }
-
-    private static func uniqueTrashDestination(for url: URL, in trashURL: URL) -> URL {
-        let fileManager = FileManager.default
-        let baseName = url.deletingPathExtension().lastPathComponent
-        let pathExtension = url.pathExtension
-
-        var candidate = trashURL.appendingPathComponent(url.lastPathComponent)
-        var index = 2
-
-        while fileManager.fileExists(atPath: candidate.path) {
-            let filename = pathExtension.isEmpty ? "\(baseName) \(index)" : "\(baseName) \(index).\(pathExtension)"
-            candidate = trashURL.appendingPathComponent(filename)
-            index += 1
-        }
-
-        return candidate
-    }
-
-    private static func shellQuoted(_ string: String) -> String {
-        "'\(string.replacingOccurrences(of: "'", with: "'\"'\"'"))'"
-    }
-
-    private static func appleScriptStringLiteral(_ string: String) -> String {
-        let escaped = string
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        return "\"\(escaped)\""
-    }
-
-    private static func administratorScriptErrorDescription(_ errorInfo: NSDictionary) -> String {
-        if let number = errorInfo[NSAppleScript.errorNumber] as? Int, number == -128 {
-            return KidoXL10n.ui("Administrator permission was cancelled.")
-        }
-
-        let message = [
-            errorInfo[NSAppleScript.errorMessage] as? String,
-            errorInfo[NSAppleScript.errorBriefMessage] as? String
-        ]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
-
-        if let message {
-            return message
-        }
-
-        if let number = errorInfo[NSAppleScript.errorNumber] {
-            return KidoXL10n.uiFormat("Administrator permission request failed with error %@.", String(describing: number))
-        }
-
-        return KidoXL10n.ui("Administrator permission request failed.")
+    private static var isProLicenseActive: Bool {
+        UserDefaults.standard.string(forKey: "ClyAppLicense.status") == "active"
     }
 
     private static func normalizedBundleIdentifier(from item: LaunchItem) throws -> String {
@@ -357,6 +361,9 @@ struct ApplicationUninstaller: Sendable {
                     try fileManager.removeItem(at: url)
                     removed.append(target)
                 } catch {
+                    Self.logger.error(
+                        "Failed to remove app data target '\(url.path, privacy: .public)': \(Self.errorSummary(error), privacy: .public)"
+                    )
                     failed.append(ApplicationUninstallResult.RemovalFailure(
                         target: target,
                         errorDescription: error.localizedDescription
@@ -366,6 +373,60 @@ struct ApplicationUninstaller: Sendable {
 
             return (removed, failed)
         }.value
+    }
+
+    private func removeUserDataWithPrivilegedFallback(
+        targets: [ApplicationUninstallTarget]
+    ) async -> (removed: [ApplicationUninstallTarget], failed: [ApplicationUninstallResult.RemovalFailure]) {
+        let primaryRemoval = await Self.removeUserData(targets: targets)
+        guard !primaryRemoval.failed.isEmpty else {
+            return primaryRemoval
+        }
+
+        guard Self.isProLicenseActive else {
+            Self.logger.warning(
+                "Skipping privileged helper data removal because the license is not Pro. failedCount=\(primaryRemoval.failed.count, privacy: .public)"
+            )
+            return primaryRemoval
+        }
+
+        let failedTargets = primaryRemoval.failed.map(\.target)
+        do {
+            Self.logger.warning(
+                "Retrying failed user data removals with privileged helper. failedCount=\(failedTargets.count, privacy: .public)"
+            )
+            let helperRemoval = try await privilegedHelperClient.removeItems(at: failedTargets.map(\.url))
+            let removedPaths = Set(helperRemoval.removed.map { $0.standardizedFileURL.path })
+            let helperFailuresByPath = Dictionary(uniqueKeysWithValues: helperRemoval.failed.map {
+                ($0.key.standardizedFileURL.path, $0.value)
+            })
+
+            let helperRemovedTargets = failedTargets.filter {
+                removedPaths.contains($0.url.standardizedFileURL.path)
+            }
+            let remainingFailures = failedTargets.compactMap { target -> ApplicationUninstallResult.RemovalFailure? in
+                let path = target.url.standardizedFileURL.path
+                guard !removedPaths.contains(path) else { return nil }
+                return ApplicationUninstallResult.RemovalFailure(
+                    target: target,
+                    errorDescription: helperFailuresByPath[path] ?? KidoXL10n.ui("Could not remove this data item.")
+                )
+            }
+
+            Self.logger.notice(
+                "Privileged helper user data cleanup finished. removed=\(helperRemovedTargets.count, privacy: .public) failed=\(remainingFailures.count, privacy: .public)"
+            )
+
+            return (
+                removed: primaryRemoval.removed + helperRemovedTargets,
+                failed: remainingFailures
+            )
+        } catch {
+            Self.logger.error(
+                "Privileged helper user data cleanup failed before completion. \(Self.errorSummary(error), privacy: .public)"
+            )
+            return primaryRemoval
+        }
     }
 
     private static func prepareAppDataAccessIfNeeded(for targets: [ApplicationUninstallTarget]) async {

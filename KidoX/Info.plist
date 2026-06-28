@@ -30,6 +30,11 @@
 	<string>KidoXDockTile.docktileplugin</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SMPrivilegedExecutables</key>
+	<dict>
+		<key>com.clyapps.KidoX.PrivilegedHelper</key>
+		<string>identifier "com.clyapps.KidoX.PrivilegedHelper" and anchor apple generic and certificate leaf[subject.OU] = "LCR49HJMTK"</string>
+	</dict>
 	<key>SUAllowsAutomaticUpdates</key>
 	<true/>
 	<key>SUAutomaticallyUpdate</key>

@@ -14,6 +14,7 @@ struct UninstallPanelSession: Identifiable, Equatable {
         case confirming(ApplicationUninstallPlan)
         case uninstalling(ApplicationUninstallPlan)
         case completed(ApplicationUninstallResult)
+        case blockedForFree
         case failed(String)
 
         static func == (lhs: Phase, rhs: Phase) -> Bool {
@@ -33,6 +34,8 @@ struct UninstallPanelSession: Identifiable, Equatable {
                     && lhsResult.trashedAppURL == rhsResult.trashedAppURL
                     && lhsResult.removedDataTargets == rhsResult.removedDataTargets
                     && lhsResult.failedDataRemovals.map(\.url) == rhsResult.failedDataRemovals.map(\.url)
+            case (.blockedForFree, .blockedForFree):
+                return true
             case (.failed(let lhsMessage), .failed(let rhsMessage)):
                 return lhsMessage == rhsMessage
             default:
@@ -73,6 +76,8 @@ struct UninstallPanelRouteView: NSViewRepresentable {
     let onConfirm: (LaunchItem, ApplicationUninstallPlan) async -> Bool
     let onRetryFailedItems: (ApplicationUninstallResult) async -> Bool
     let onOpenPrivacySettings: () -> Void
+    let onRevealInFinder: (LaunchItem) -> Void
+    let onUpgradeToPro: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -112,7 +117,9 @@ struct UninstallPanelRouteView: NSViewRepresentable {
                 onCancel: parent.onCancel,
                 onConfirm: parent.onConfirm,
                 onRetryFailedItems: parent.onRetryFailedItems,
-                onOpenPrivacySettings: parent.onOpenPrivacySettings
+                onOpenPrivacySettings: parent.onOpenPrivacySettings,
+                onRevealInFinder: parent.onRevealInFinder,
+                onUpgradeToPro: parent.onUpgradeToPro
             )
 
             if popover == nil {
@@ -224,6 +231,8 @@ private struct UninstallPopoverContent: View {
     let onConfirm: (LaunchItem, ApplicationUninstallPlan) async -> Bool
     let onRetryFailedItems: (ApplicationUninstallResult) async -> Bool
     let onOpenPrivacySettings: () -> Void
+    let onRevealInFinder: (LaunchItem) -> Void
+    let onUpgradeToPro: () -> Void
 
     var body: some View {
         Group {
@@ -265,6 +274,16 @@ private struct UninstallPopoverContent: View {
                         await onRetryFailedItems(result)
                     },
                     onOpenPrivacySettings: onOpenPrivacySettings
+                )
+
+            case .blockedForFree:
+                FreeUninstallBlockedPopover(
+                    item: session.item,
+                    onRevealInFinder: {
+                        onRevealInFinder(session.item)
+                    },
+                    onUpgradeToPro: onUpgradeToPro,
+                    onDone: onCancel
                 )
 
             case .failed(let message):
@@ -606,6 +625,117 @@ private struct UninstallResultPopover: View {
             .foregroundStyle(.green)
             .frame(width: 36, height: 36)
             .background(.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private struct FreeUninstallBlockedPopover: View {
+    let item: LaunchItem
+    let onRevealInFinder: () -> Void
+    let onUpgradeToPro: () -> Void
+    let onDone: () -> Void
+
+    var body: some View {
+        UninstallPopoverChrome {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(nsImage: IconCache.rasterizedIcon(for: item.sourcePath, pointSize: 44))
+                        .frame(width: 44, height: 44)
+                        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(KidoXL10n.ui("Administrator permission required"))
+                            .font(.system(size: 20, weight: .semibold))
+                            .lineLimit(2)
+                            .foregroundStyle(.primary)
+
+                        Text(KidoXL10n.ui("KidoX Free cannot remove this app directly."))
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.orange)
+                        .frame(width: 36, height: 36)
+                        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(KidoXL10n.ui("Choose an option:"))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    Button(action: onUpgradeToPro) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 14, weight: .semibold))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(KidoXL10n.ui("Upgrade to Pro"))
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text(KidoXL10n.ui("Remove protected apps from KidoX."))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.white.opacity(0.82))
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(UninstallPrimaryRowButtonStyle())
+
+                    Button(action: onRevealInFinder) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(KidoXL10n.string(.showInFinder))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.primary)
+                                Text(KidoXL10n.ui("Delete it manually in Finder."))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(UninstallOptionRowButtonStyle())
+                }
+
+                HStack {
+                    Spacer()
+                    Button(KidoXL10n.string(.done), action: onDone)
+                        .buttonStyle(UninstallSecondaryButtonStyle())
+                }
+            }
+        }
+    }
+}
+
+private struct UninstallPrimaryRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 13)
+            .frame(height: 54)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(configuration.isPressed ? Color.accentColor.opacity(0.82) : Color.accentColor)
+            )
+            .foregroundStyle(.white)
+    }
+}
+
+private struct UninstallOptionRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 13)
+            .frame(height: 54)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(configuration.isPressed ? .black.opacity(0.10) : .black.opacity(0.045))
+            )
     }
 }
 
@@ -957,6 +1087,21 @@ private struct UninstallSecondaryButtonStyle: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(configuration.isPressed ? .black.opacity(0.10) : .black.opacity(0.055))
+            )
+    }
+}
+
+private struct UninstallPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 16)
+            .frame(height: 30)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(configuration.isPressed ? Color.accentColor.opacity(0.82) : Color.accentColor)
             )
     }
 }

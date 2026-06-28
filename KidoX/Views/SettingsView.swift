@@ -20,6 +20,7 @@ final class SettingsState {
 enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
     case general
     case appearance
+    case uninstaller
     case hiddenApps
     case advanced
     case license
@@ -35,6 +36,7 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .general:    KidoXL10n.string(.general, languageRawValue: languageRawValue)
         case .appearance: KidoXL10n.string(.appearance, languageRawValue: languageRawValue)
+        case .uninstaller: KidoXL10n.ui("Uninstaller", languageRawValue: languageRawValue)
         case .hiddenApps: KidoXL10n.string(.hiddenApps, languageRawValue: languageRawValue)
         case .advanced:   KidoXL10n.string(.advanced, languageRawValue: languageRawValue)
         case .license:    KidoXL10n.string(.license, languageRawValue: languageRawValue)
@@ -46,6 +48,7 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .general:    "gearshape"
         case .appearance: "paintbrush"
+        case .uninstaller: "trash"
         case .hiddenApps: "eye.slash"
         case .advanced:   "shippingbox"
         case .license:    "key"
@@ -220,6 +223,7 @@ struct DetailView: View {
             switch state.currentPane {
             case .general:    GeneralPane()
             case .appearance: AppearancePane(state: state)
+            case .uninstaller: UninstallerSettingsPane(state: state)
             case .hiddenApps: HiddenAppsPane()
             case .advanced:   AdvancedPane(state: state)
             case .license:    LicensePane()
@@ -923,6 +927,320 @@ private struct DockIconPreviewButton: View {
         .onHover { hovering in
             isHovered = hovering
         }
+    }
+}
+
+private struct UninstallerSettingsPane: View {
+    var state: SettingsState
+
+    @AppStorage(KidoXLanguage.storageKey)
+    private var appLanguageRaw = KidoXLanguage.system.rawValue
+    @AppStorage("ClyAppLicense.status")
+    private var licenseStatus = "Free"
+
+    @State private var helperVersion: String?
+    @State private var statusMessage: String?
+    @State private var statusMessageIsError = false
+    @State private var isCheckingHelper = false
+    @State private var isInstallingHelper = false
+    @State private var hasFullDiskAccess = Self.detectFullDiskAccess()
+
+    private let helperClient = KidoXPrivilegedHelperClient()
+
+    private var isPro: Bool {
+        licenseStatus == "active"
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: dataAccessSymbol)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(dataAccessColor)
+                            .frame(width: 32)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(dataAccessTitle)
+                                    .font(.headline)
+                                if !isPro { ProBadge() }
+                            }
+
+                            Text(fullDiskAccessDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if isPro, !hasFullDiskAccess {
+                            Button(KidoXL10n.ui("Grant Access", languageRawValue: appLanguageRaw)) {
+                                openFullDiskAccessSettings()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else if !isPro {
+                            Button(KidoXL10n.ui("Purchase Pro", languageRawValue: appLanguageRaw)) {
+                                NSWorkspace.shared.open(KidoXAppConfiguration.purchaseURL)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text(KidoXL10n.ui("Full Disk Access", languageRawValue: appLanguageRaw))
+            }
+            .listRowBackground(Color(nsColor: .controlBackgroundColor))
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: advancedUninstallSymbol)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(advancedUninstallColor)
+                            .frame(width: 32)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(advancedUninstallTitle)
+                                    .font(.headline)
+                                if !isPro { ProBadge() }
+                            }
+
+                            Text(advancedUninstallDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if isInstallingHelper {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+
+                        if isPro, shouldShowHelperAction {
+                            Button(helperActionTitle) {
+                                installHelper()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isCheckingHelper || isInstallingHelper)
+                        } else if !isPro {
+                            Button(KidoXL10n.ui("Purchase Pro", languageRawValue: appLanguageRaw)) {
+                                NSWorkspace.shared.open(KidoXAppConfiguration.purchaseURL)
+                            }
+                        }
+                    }
+
+                    if let statusMessage {
+                        Text(statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(statusMessageIsError ? .red : .secondary)
+                    }
+
+                    Text(KidoXL10n.ui("Free users can uninstall apps that macOS allows KidoX to move to Trash. Pro users can install the helper to remove root-owned and many Mac App Store apps.", languageRawValue: appLanguageRaw))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text(KidoXL10n.ui("Advanced Uninstall", languageRawValue: appLanguageRaw))
+            }
+            .listRowBackground(Color(nsColor: .controlBackgroundColor))
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            refreshFullDiskAccessStatus()
+            refreshHelperStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshFullDiskAccessStatus()
+        }
+    }
+
+    private var fullDiskAccessDescription: String {
+        if !isPro {
+            return KidoXL10n.ui("Upgrade to Pro to scan and remove app data in protected Library folders.", languageRawValue: appLanguageRaw)
+        }
+        if hasFullDiskAccess {
+            return KidoXL10n.ui("KidoX can access protected Library folders for app data cleanup.", languageRawValue: appLanguageRaw)
+        }
+        return KidoXL10n.ui("Grant Full Disk Access so KidoX can scan and remove app data in protected Library folders such as Containers and Group Containers.", languageRawValue: appLanguageRaw)
+    }
+
+    private var dataAccessSymbol: String {
+        if !isPro { return "lock.shield" }
+        return hasFullDiskAccess ? "checkmark.circle.fill" : "hand.raised.fill"
+    }
+
+    private var dataAccessColor: Color {
+        if !isPro { return .secondary }
+        return hasFullDiskAccess ? .green : .orange
+    }
+
+    private var dataAccessTitle: String {
+        if !isPro {
+            return KidoXL10n.ui("Data cleanup requires Pro", languageRawValue: appLanguageRaw)
+        }
+        return hasFullDiskAccess
+            ? KidoXL10n.ui("Full Disk Access is enabled", languageRawValue: appLanguageRaw)
+            : KidoXL10n.ui("Full Disk Access is not enabled", languageRawValue: appLanguageRaw)
+    }
+
+    private var advancedUninstallSymbol: String {
+        if !isPro { return "lock.shield" }
+        if helperVersion == nil || helperNeedsUpdate { return "shield" }
+        return "checkmark.shield.fill"
+    }
+
+    private var advancedUninstallColor: Color {
+        if !isPro { return .secondary }
+        return helperVersion == nil || helperNeedsUpdate ? .orange : .green
+    }
+
+    private var advancedUninstallTitle: String {
+        if !isPro {
+            return KidoXL10n.ui("Advanced uninstall requires Pro", languageRawValue: appLanguageRaw)
+        }
+        if helperVersion == nil {
+            return KidoXL10n.ui("Advanced uninstall is not enabled", languageRawValue: appLanguageRaw)
+        }
+        if helperNeedsUpdate {
+            return KidoXL10n.ui("Advanced uninstall update available", languageRawValue: appLanguageRaw)
+        }
+        return KidoXL10n.ui("Advanced uninstall is enabled", languageRawValue: appLanguageRaw)
+    }
+
+    private var advancedUninstallDescription: String {
+        if !isPro {
+            return KidoXL10n.ui("Upgrade to Pro to remove apps that require administrator permission.", languageRawValue: appLanguageRaw)
+        }
+        if let helperVersion {
+            if helperNeedsUpdate {
+                return KidoXL10n.uiFormat(
+                    "Helper version %@ is installed. Version %@ is available.",
+                    helperVersion,
+                    KidoXPrivilegedHelper.version,
+                    languageRawValue: appLanguageRaw
+                )
+            }
+            return KidoXL10n.uiFormat("Helper version %@ is installed.", helperVersion, languageRawValue: appLanguageRaw)
+        }
+        return KidoXL10n.ui("Install the helper once to remove root-owned and Mac App Store apps without repeated administrator prompts.", languageRawValue: appLanguageRaw)
+    }
+
+    private var shouldShowHelperAction: Bool {
+        helperVersion == nil || helperNeedsUpdate
+    }
+
+    private var helperActionTitle: String {
+        helperVersion == nil
+            ? KidoXL10n.ui("Install Helper", languageRawValue: appLanguageRaw)
+            : KidoXL10n.ui("Update Helper", languageRawValue: appLanguageRaw)
+    }
+
+    private var helperNeedsUpdate: Bool {
+        guard let helperVersion else { return false }
+        return helperVersion.compare(KidoXPrivilegedHelper.version, options: .numeric) == .orderedAscending
+    }
+
+    private func refreshHelperStatus() {
+        guard !isCheckingHelper else { return }
+        isCheckingHelper = true
+        statusMessage = nil
+        statusMessageIsError = false
+
+        Task {
+            do {
+                let version = try await helperClient.installedHelperVersion()
+                await MainActor.run {
+                    helperVersion = version
+                    statusMessage = nil
+                    statusMessageIsError = false
+                    isCheckingHelper = false
+                }
+            } catch {
+                await MainActor.run {
+                    helperVersion = nil
+                    statusMessage = KidoXL10n.ui("Helper is not installed.", languageRawValue: appLanguageRaw)
+                    statusMessageIsError = false
+                    isCheckingHelper = false
+                }
+            }
+        }
+    }
+
+    private func installHelper() {
+        guard isPro, !isInstallingHelper else { return }
+        isInstallingHelper = true
+        statusMessage = KidoXL10n.ui("Waiting for administrator authorization...", languageRawValue: appLanguageRaw)
+        statusMessageIsError = false
+
+        Task {
+            do {
+                try await Task.detached {
+                    try helperClient.installHelper()
+                }.value
+                let version = try await helperClient.installedHelperVersion()
+                await MainActor.run {
+                    helperVersion = version
+                    statusMessage = nil
+                    statusMessageIsError = false
+                    isInstallingHelper = false
+                }
+            } catch {
+                await MainActor.run {
+                    statusMessage = error.localizedDescription
+                    statusMessageIsError = true
+                    isInstallingHelper = false
+                }
+            }
+        }
+    }
+
+    private func refreshFullDiskAccessStatus() {
+        hasFullDiskAccess = Self.detectFullDiskAccess()
+    }
+
+    private func openFullDiskAccessSettings() {
+        let candidateURLs = [
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"),
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+        ]
+
+        for url in candidateURLs.compactMap({ $0 }) {
+            if NSWorkspace.shared.open(url) {
+                return
+            }
+        }
+    }
+
+    private static func detectFullDiskAccess() -> Bool {
+        let fileManager = FileManager.default
+        let libraryURL = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first
+        let probeURLs = [
+            libraryURL?.appendingPathComponent("Mail", isDirectory: true),
+            libraryURL?.appendingPathComponent("Messages", isDirectory: true),
+            libraryURL?.appendingPathComponent("Safari", isDirectory: true)
+        ].compactMap { $0 }
+
+        var testedProtectedLocation = false
+        for url in probeURLs where fileManager.fileExists(atPath: url.path) {
+            testedProtectedLocation = true
+            if (try? fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) != nil {
+                return true
+            }
+        }
+
+        return !testedProtectedLocation
     }
 }
 
@@ -1665,6 +1983,12 @@ private struct LicensePane: View {
                     subtitle: isPro
                         ? KidoXL10n.ui("Solid colors, custom colors, and custom image backgrounds.", languageRawValue: appLanguageRaw)
                         : KidoXL10n.ui("Unlock solid colors, custom colors, and custom image backgrounds.", languageRawValue: appLanguageRaw),
+                    showsPro: !isPro
+                )
+                ProFeatureRow(
+                    symbol: "trash",
+                    title: KidoXL10n.ui("Uninstaller", languageRawValue: appLanguageRaw),
+                    subtitle: KidoXL10n.ui("Remove app data and apps that require administrator permission.", languageRawValue: appLanguageRaw),
                     showsPro: !isPro
                 )
                 ProFeatureRow(
