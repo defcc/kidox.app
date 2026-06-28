@@ -32,6 +32,11 @@ enum KidoXLaunchSort: String, CaseIterable, Identifiable {
     }
 }
 
+private struct VisibleItemsCacheKey: Hashable {
+    let sort: KidoXLaunchSort
+    let query: String
+}
+
 enum IconCache {
     private static let diskCacheDirectory: URL = {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -193,7 +198,11 @@ final class KidoXStore {
         }
     }
 
-    var pages: [LaunchPage] = []
+    var pages: [LaunchPage] = [] {
+        didSet {
+            visibleItemsCache.removeAll()
+        }
+    }
     var searchQuery = ""
     var searchFocusRequestID = 0
     var selectedItemID: LaunchItem.ID?
@@ -212,6 +221,7 @@ final class KidoXStore {
     private var initialApplicationRefreshTask: Task<Void, Never>?
     private var pendingApplicationRefreshTask: Task<Void, Never>?
     private var presentationPreparationTask: Task<Void, Never>?
+    @ObservationIgnored private var visibleItemsCache: [VisibleItemsCacheKey: [LaunchItem]] = [:]
     @ObservationIgnored nonisolated(unsafe) private var externalPagesObserver: NSObjectProtocol?
 
     init() {
@@ -237,17 +247,13 @@ final class KidoXStore {
     }
 
     var visibleItems: [LaunchItem] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !query.isEmpty else {
             return orderedPages.flatMap { $0.rootItems }
         }
 
-        return orderedPages.flatMap { page in
-            page.items
-                .filter { !$0.isHidden && $0.kind != .folder && $0.searchText.contains(query) }
-                .sorted { $0.sortIndex < $1.sortIndex }
-        }
+        return cachedSortedVisibleItems(sort: .default, query: query)
     }
 
     var appCountText: String {
@@ -287,26 +293,40 @@ final class KidoXStore {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard sort == .default else {
-            return sortedVisibleItems(sort: sort, query: query).chunked(into: boundedPageSize)
+            return cachedSortedVisibleItems(sort: sort, query: query).chunked(into: boundedPageSize)
         }
 
         guard query.isEmpty else {
-            return sortedVisibleItems(sort: .default, query: query).chunked(into: boundedPageSize)
+            return cachedSortedVisibleItems(sort: .default, query: query).chunked(into: boundedPageSize)
         }
 
         return orderedPages.map(\.rootItems)
     }
 
+    private func cachedSortedVisibleItems(sort: KidoXLaunchSort, query: String) -> [LaunchItem] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = VisibleItemsCacheKey(sort: sort, query: normalizedQuery)
+        if let cached = visibleItemsCache[key] {
+            return cached
+        }
+
+        let items = sortedVisibleItems(sort: sort, query: normalizedQuery)
+        visibleItemsCache[key] = items
+        return items
+    }
+
     private func sortedVisibleItems(sort: KidoXLaunchSort, query: String) -> [LaunchItem] {
-        let normalizedQuery = query.localizedLowercase
-        let items = orderedPages.flatMap { page in
-            page.items
-                .filter { item in
-                    !item.isHidden
-                        && item.kind != .folder
-                        && (normalizedQuery.isEmpty || item.searchText.contains(normalizedQuery))
-                }
-                .sorted { $0.sortIndex < $1.sortIndex }
+        let items: [LaunchItem]
+        if query.isEmpty {
+            items = orderedPages.flatMap { page in
+                page.items
+                    .filter { !$0.isHidden && $0.kind != .folder }
+                    .sorted { $0.sortIndex < $1.sortIndex }
+            }
+        } else {
+            items = searchMatches(for: query)
+                .sorted(by: defaultSearchResultCompare)
+                .map(\.item)
         }
 
         switch sort {
@@ -342,6 +362,32 @@ final class KidoXStore {
 
     private func localizedNameCompare(_ lhs: LaunchItem, _ rhs: LaunchItem) -> ComparisonResult {
         lhs.effectiveDisplayName.localizedStandardCompare(rhs.effectiveDisplayName)
+    }
+
+    private func searchMatches(for query: String) -> [(item: LaunchItem, match: LaunchItemSearchMatch)] {
+        guard let parsedQuery = LaunchItemSearchQuery(query) else { return [] }
+
+        return orderedPages.flatMap { page in
+            page.items.compactMap { item in
+                guard !item.isHidden, item.kind != .folder, let match = item.searchMatch(for: parsedQuery) else {
+                    return nil
+                }
+                return (item, match)
+            }
+        }
+    }
+
+    private func defaultSearchResultCompare(
+        _ lhs: (item: LaunchItem, match: LaunchItemSearchMatch),
+        _ rhs: (item: LaunchItem, match: LaunchItemSearchMatch)
+    ) -> Bool {
+        if lhs.match != rhs.match {
+            return lhs.match < rhs.match
+        }
+        if lhs.item.sortIndex != rhs.item.sortIndex {
+            return lhs.item.sortIndex < rhs.item.sortIndex
+        }
+        return localizedNameCompare(lhs.item, rhs.item) == .orderedAscending
     }
 
     func children(of folderID: UUID) -> [LaunchItem] {
@@ -1154,6 +1200,7 @@ final class KidoXStore {
                 merged[location.pageIndex].items[location.itemIndex].url = scannedItem.url
                 merged[location.pageIndex].items[location.itemIndex].bundleIdentifier = scannedItem.bundleIdentifier
                 merged[location.pageIndex].items[location.itemIndex].bundleName = scannedItem.bundleName
+                merged[location.pageIndex].items[location.itemIndex].localizedDisplayNames = scannedItem.localizedDisplayNames
                 merged[location.pageIndex].items[location.itemIndex].applicationCategory = scannedItem.applicationCategory
                 merged[location.pageIndex].items[location.itemIndex].version = scannedItem.version
                 merged[location.pageIndex].items[location.itemIndex].sourcePath = scannedItem.sourcePath

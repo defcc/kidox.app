@@ -72,7 +72,9 @@ struct ApplicationScanner: Sendable {
 
         let bundle = Bundle(url: url)
         let info = bundle?.infoDictionary
-        let localizedName = localizedApplicationName(bundle: bundle, info: info, fallbackURL: url)
+        let localizedDisplayNames = localizedApplicationNames(bundle: bundle, info: info, fallbackURL: url)
+        let localizedName = selectedLocalizedApplicationName(bundle: bundle, info: info, fallbackURL: url)
+            ?? localizedDisplayNames.first
             ?? info?["CFBundleDisplayName"] as? String
             ?? info?["CFBundleName"] as? String
             ?? url.deletingPathExtension().lastPathComponent
@@ -98,6 +100,7 @@ struct ApplicationScanner: Sendable {
             url: url,
             bundleIdentifier: bundleIdentifier,
             bundleName: info?["CFBundleName"] as? String,
+            localizedDisplayNames: localizedDisplayNames,
             applicationCategory: applicationCategory,
             version: version,
             sourcePath: url.path,
@@ -106,7 +109,7 @@ struct ApplicationScanner: Sendable {
         )
     }
 
-    private static func localizedApplicationName(
+    private static func selectedLocalizedApplicationName(
         bundle: Bundle?,
         info: [String: Any]?,
         fallbackURL: URL
@@ -130,6 +133,52 @@ struct ApplicationScanner: Sendable {
         }
 
         return localizedNameFromFileSystem(fallbackURL)
+    }
+
+    private static func localizedApplicationNames(
+        bundle: Bundle?,
+        info: [String: Any]?,
+        fallbackURL: URL
+    ) -> [String] {
+        let keys = ["CFBundleDisplayName", "CFBundleName"]
+        var names: [String] = []
+
+        names.append(contentsOf: keys.compactMap { bundle?.localizedInfoDictionary?[$0] as? String })
+        names.append(contentsOf: keys.compactMap { info?[$0] as? String })
+
+        for identifier in allBundleLocalizationIdentifiers(bundle: bundle) {
+            if let localized = localizedInfoPlistString(in: bundle, lprojIdentifier: identifier, keys: keys) {
+                names.append(localized)
+            }
+            if let localized = localizedInfoPlistLoctableString(in: bundle, localizationIdentifier: identifier, keys: keys) {
+                names.append(localized)
+            }
+        }
+
+        names.append(contentsOf: localizedInfoPlistLoctableStrings(in: bundle, keys: keys))
+
+        if let fileSystemName = localizedNameFromFileSystem(fallbackURL) {
+            names.append(fileSystemName)
+        }
+
+        return names
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .uniquedPreservingOrder()
+    }
+
+    private static func allBundleLocalizationIdentifiers(bundle: Bundle?) -> [String] {
+        guard let bundle else { return [] }
+
+        var identifiers: [String] = []
+        identifiers.append(contentsOf: bundle.preferredLocalizations)
+        identifiers.append(contentsOf: bundle.localizations)
+        if let developmentLocalization = bundle.developmentLocalization {
+            identifiers.append(developmentLocalization)
+        }
+        identifiers.append(contentsOf: KidoXLanguage.allCases.flatMap(\.bundleLocalizationIdentifiers))
+
+        return identifiers.uniquedPreservingOrder()
     }
 
     private static func localizedInfoPlistString(
@@ -161,6 +210,23 @@ struct ApplicationScanner: Sendable {
         }
 
         return keys.compactMap { localizedStrings[$0] }.firstNonEmptyString
+    }
+
+    private static func localizedInfoPlistLoctableStrings(
+        in bundle: Bundle?,
+        keys: [String]
+    ) -> [String] {
+        guard
+            let loctableURL = bundle?.url(forResource: "InfoPlist", withExtension: "loctable"),
+            let table = NSDictionary(contentsOf: loctableURL) as? [String: Any]
+        else {
+            return []
+        }
+
+        return table.values.flatMap { value -> [String] in
+            guard let localizedStrings = value as? [String: String] else { return [] }
+            return keys.compactMap { localizedStrings[$0] }
+        }
     }
 
     private static func localizedNameFromFileSystem(_ url: URL) -> String? {
@@ -212,5 +278,10 @@ private extension Array where Element == String {
             }
         }
         return nil
+    }
+
+    func uniquedPreservingOrder() -> [String] {
+        var seen = Set<String>()
+        return filter { seen.insert($0).inserted }
     }
 }

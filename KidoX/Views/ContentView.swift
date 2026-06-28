@@ -535,6 +535,7 @@ struct KidoXForegroundLayer: View {
                 if let uninstallSession {
                     UninstallPanelRouteView(
                         session: uninstallSession,
+                        isPro: isPro,
                         hasFullDiskAccess: hasFullDiskAccess,
                         anchor: uninstallPopoverAnchor(for: uninstallSession.item, size: proxy.size),
                         onCancel: {

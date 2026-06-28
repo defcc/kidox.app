@@ -70,6 +70,7 @@ struct UninstallCompletionAnimation: Identifiable, Equatable {
 
 struct UninstallPanelRouteView: NSViewRepresentable {
     let session: UninstallPanelSession
+    let isPro: Bool
     let hasFullDiskAccess: Bool
     let anchor: CGPoint
     let onCancel: () -> Void
@@ -113,6 +114,7 @@ struct UninstallPanelRouteView: NSViewRepresentable {
 
             let content = UninstallPopoverContent(
                 session: parent.session,
+                isPro: parent.isPro,
                 hasFullDiskAccess: parent.hasFullDiskAccess,
                 onCancel: parent.onCancel,
                 onConfirm: parent.onConfirm,
@@ -226,6 +228,7 @@ struct UninstallPanelRouteView: NSViewRepresentable {
 
 private struct UninstallPopoverContent: View {
     let session: UninstallPanelSession
+    let isPro: Bool
     let hasFullDiskAccess: Bool
     let onCancel: () -> Void
     let onConfirm: (LaunchItem, ApplicationUninstallPlan) async -> Bool
@@ -248,12 +251,14 @@ private struct UninstallPopoverContent: View {
                 UninstallConfirmationPopover(
                     item: session.item,
                     plan: plan,
+                    isPro: isPro,
                     hasFullDiskAccess: hasFullDiskAccess,
                     onCancel: onCancel,
                     onConfirm: {
                         await onConfirm(session.item, plan)
                     },
-                    onOpenPrivacySettings: onOpenPrivacySettings
+                    onOpenPrivacySettings: onOpenPrivacySettings,
+                    onUpgradeToPro: onUpgradeToPro
                 )
 
             case .uninstalling(let plan):
@@ -397,10 +402,12 @@ private enum AppKitPoofEffect {
 private struct UninstallConfirmationPopover: View {
     let item: LaunchItem
     let plan: ApplicationUninstallPlan
+    let isPro: Bool
     let hasFullDiskAccess: Bool
     let onCancel: () -> Void
     let onConfirm: () async -> Bool
     let onOpenPrivacySettings: () -> Void
+    let onUpgradeToPro: () -> Void
 
     @State private var showsDetails = false
     @State private var isConfirming = false
@@ -423,6 +430,10 @@ private struct UninstallConfirmationPopover: View {
 
                 if shouldShowPermissionNotice {
                     UninstallPermissionNotice(onOpenPrivacySettings: onOpenPrivacySettings)
+                }
+
+                if !isPro {
+                    UninstallUpgradeNotice(onUpgradeToPro: onUpgradeToPro)
                 }
 
                 UninstallDetailsSection(
@@ -805,16 +816,6 @@ private struct UninstallHeader: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
-                if let bundleIdentifier = item.bundleIdentifier {
-                    Text(bundleIdentifier)
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.black.opacity(0.055), in: Capsule())
-                }
             }
 
             Spacer(minLength: 8)
@@ -896,6 +897,42 @@ private struct UninstallPermissionNotice: View {
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .strokeBorder(.orange.opacity(0.14), lineWidth: 1)
+        }
+    }
+}
+
+private struct UninstallUpgradeNotice: View {
+    let onUpgradeToPro: () -> Void
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 24, height: 24)
+                .background(.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(KidoXL10n.ui("Deep cleanup is a Pro feature"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(KidoXL10n.ui("Free removes the app only. Pro can remove related app data."))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            Button(KidoXL10n.ui("Upgrade"), action: onUpgradeToPro)
+                .buttonStyle(UninstallInlineButtonStyle())
+        }
+        .padding(9)
+        .background(.blue.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(.blue.opacity(0.14), lineWidth: 1)
         }
     }
 }
