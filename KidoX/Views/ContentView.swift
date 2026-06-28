@@ -5600,8 +5600,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                         (
                             $0.item.id,
                             PendingDropCompactionSourceFrame(
-                                frame: $0.frame,
-                                pageIndex: $0.pageIndex
+                                globalFrame: globalFrame(for: $0)
                             )
                         )
                     }
@@ -5915,13 +5914,12 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         CATransaction.setDisableActions(true)
         for record in tileRecords {
             guard let source = sourceFrames[record.item.id],
-                  source.pageIndex == record.pageIndex,
-                  source.frame != record.frame
+                  source.globalFrame != globalFrame(for: record)
             else {
                 continue
             }
 
-            setVisual(record.visual, frame: source.frame, pageIndex: source.pageIndex)
+            setVisual(record.visual, globalFrame: source.globalFrame, targetPageIndex: record.pageIndex)
             animations.append(
                 PendingDropCompactionAnimation(
                     visual: record.visual,
@@ -6668,8 +6666,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                             (
                                 $0.item.id,
                                 PendingDropCompactionSourceFrame(
-                                    frame: $0.frame,
-                                    pageIndex: $0.pageIndex
+                                    globalFrame: self.globalFrame(for: $0)
                                 )
                             )
                         }
@@ -7435,6 +7432,20 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         }
     }
 
+    private func setVisual(_ visual: TileVisual, globalFrame: CGRect, targetPageIndex: Int) {
+        switch visual {
+        case .layer(let layer):
+            let localFrame = globalFrame.offsetBy(dx: -CGFloat(targetPageIndex) * pageWidth, dy: 0)
+            layer.frame = layerFrameForTileFrame(localFrame)
+        case .view(let view):
+            view.frame = globalFrame
+        }
+    }
+
+    private func globalFrame(for record: TileRecord) -> CGRect {
+        record.frame.offsetBy(dx: CGFloat(record.pageIndex) * pageWidth, dy: 0)
+    }
+
     private func setPressedVisual(itemID: LaunchItem.ID?) {
         guard pressedVisualItemID != itemID else { return }
 
@@ -8033,8 +8044,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     }
 
     private struct PendingDropCompactionSourceFrame {
-        let frame: CGRect
-        let pageIndex: Int
+        let globalFrame: CGRect
     }
 
     private struct PendingDropCompactionAnimation {
