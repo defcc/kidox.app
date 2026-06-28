@@ -119,13 +119,13 @@ extension LaunchItem {
             return localizedNameMatch
         }
 
-        guard query.normalized.count >= 4 else { return nil }
+        guard query.normalized.count >= 3 else { return nil }
         return match(
             query: query,
             in: metadataSearchTerms,
             scoreOffset: 120,
             allowsFuzzy: false,
-            allowsSubstring: true
+            allowsSubstring: false
         )
     }
 

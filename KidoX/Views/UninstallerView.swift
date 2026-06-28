@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import OSLog
 import SwiftUI
 
 struct UninstallPanelSession: Identifiable, Equatable {
@@ -337,6 +338,11 @@ struct UninstallPoofAnimation: View {
 }
 
 private struct NativePoofEffectView: NSViewRepresentable {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.clyapps.KidoX",
+        category: "Uninstaller"
+    )
+
     let animation: UninstallCompletionAnimation
     let onFinished: () -> Void
 
@@ -349,68 +355,237 @@ private struct NativePoofEffectView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         guard context.coordinator.animationID != animation.id else { return }
-        context.coordinator.animationID = animation.id
+        context.coordinator.reset(animationID: animation.id)
 
-        showWhenReady(in: nsView, attemptsRemaining: 6)
+        showWhenReady(in: nsView, coordinator: context.coordinator, attemptsRemaining: 6)
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.cancelPendingStart(reason: "dismantled")
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
-    final class Coordinator {
-        var animationID: UUID?
-    }
+    private func showWhenReady(in nsView: NSView, coordinator: Coordinator, attemptsRemaining: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.016) {
+            guard coordinator.animationID == animation.id,
+                  !coordinator.didCancelPendingStart
+            else { return }
 
-    private func showWhenReady(in nsView: NSView, attemptsRemaining: Int) {
-        DispatchQueue.main.async {
-            nsView.layoutSubtreeIfNeeded()
             guard nsView.window != nil,
                   nsView.bounds.width > 1,
                   nsView.bounds.height > 1
             else {
                 guard attemptsRemaining > 0 else {
+                    if coordinator.didCancelPendingStart {
+                        Self.logger.debug(
+                            "Poof host view start was cancelled before attach. animationID=\(animation.id.uuidString, privacy: .public)"
+                        )
+                        return
+                    }
+                    Self.logger.error(
+                        "Poof host view never became ready. animationID=\(animation.id.uuidString, privacy: .public) item='\(animation.item.effectiveDisplayName, privacy: .public)' hasWindow=\((nsView.window != nil), privacy: .public) bounds=(\(nsView.bounds.width, privacy: .public), \(nsView.bounds.height, privacy: .public))"
+                    )
                     onFinished()
                     return
                 }
-                showWhenReady(in: nsView, attemptsRemaining: attemptsRemaining - 1)
+                Self.logger.debug(
+                    "Waiting for poof host view. animationID=\(animation.id.uuidString, privacy: .public) attemptsRemaining=\(attemptsRemaining, privacy: .public) hasWindow=\((nsView.window != nil), privacy: .public) bounds=(\(nsView.bounds.width, privacy: .public), \(nsView.bounds.height, privacy: .public))"
+                )
+                showWhenReady(in: nsView, coordinator: coordinator, attemptsRemaining: attemptsRemaining - 1)
                 return
             }
 
-            let screenPoint = screenPoint(for: animation.center, in: nsView)
-            AppKitPoofEffect.show(at: screenPoint, size: NSSize(width: animation.iconSize, height: animation.iconSize))
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
-                onFinished()
-            }
+            playBundledPoof(in: nsView, using: coordinator)
         }
-    }
-
-    private func screenPoint(for point: CGPoint, in view: NSView) -> NSPoint {
-        let localPoint = NSPoint(x: point.x, y: point.y)
-        let windowPoint = view.convert(localPoint, to: nil)
-        return view.window?.convertPoint(toScreen: windowPoint) ?? windowPoint
     }
 
     private final class FlippedPoofHostView: NSView {
         override var isFlipped: Bool { true }
     }
-}
 
-private enum AppKitPoofEffect {
-    private typealias ShowAnimationEffect = @convention(c) (
-        Int32,
-        NSPoint,
-        NSSize,
-        UnsafeRawPointer?,
-        UnsafeRawPointer?,
-        UnsafeRawPointer?
-    ) -> Void
+    private func playBundledPoof(in nsView: NSView, using coordinator: Coordinator) {
+        guard let resourceSet = BundledPoofResources.load() else {
+            Self.logger.error(
+                "Bundled poof resources are missing. animationID=\(animation.id.uuidString, privacy: .public) item='\(animation.item.effectiveDisplayName, privacy: .public)'"
+            )
+            onFinished()
+            return
+        }
 
-    static func show(at point: NSPoint, size: NSSize) {
-        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "NSShowAnimationEffect") else { return }
-        let show = unsafeBitCast(symbol, to: ShowAnimationEffect.self)
-        show(10, point, size, nil, nil, nil)
+        Self.logger.notice(
+            "Starting bundled poof animation. animationID=\(animation.id.uuidString, privacy: .public) item='\(animation.item.effectiveDisplayName, privacy: .public)' frameCount=\(resourceSet.frames.count, privacy: .public) hasSound=\((resourceSet.soundURL != nil), privacy: .public)"
+        )
+
+        let effectSize = animation.iconSize
+        let effectFrame = CGRect(
+            x: animation.center.x - effectSize / 2,
+            y: animation.center.y - effectSize / 2,
+            width: effectSize,
+            height: effectSize
+        )
+
+        let effectView = NSView(frame: effectFrame)
+        effectView.wantsLayer = true
+        effectView.layer?.contentsGravity = .resizeAspect
+        effectView.layer?.contents = resourceSet.frames.first
+        effectView.layer?.opacity = 1
+        nsView.addSubview(effectView)
+
+        coordinator.prepare(animationID: animation.id, effectView: effectView, onFinished: onFinished)
+        playPoofSound(from: resourceSet.soundURL, using: coordinator)
+
+        let duration: CFTimeInterval = 0.52
+        let contentsAnimation = CAKeyframeAnimation(keyPath: "contents")
+        contentsAnimation.values = resourceSet.frames
+        contentsAnimation.keyTimes = [0, 0.16, 0.34, 0.58, 1]
+        contentsAnimation.calculationMode = .discrete
+        contentsAnimation.duration = duration
+
+        let scaleAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
+        scaleAnimation.values = [0.72, 0.96, 1.0]
+        scaleAnimation.keyTimes = [0, 0.38, 1]
+        scaleAnimation.duration = duration
+        scaleAnimation.timingFunctions = [
+            CAMediaTimingFunction(name: .easeOut),
+            CAMediaTimingFunction(name: .easeInEaseOut)
+        ]
+
+        let opacityAnimation = CABasicAnimation(keyPath: "opacity")
+        opacityAnimation.fromValue = 1
+        opacityAnimation.toValue = 0
+        opacityAnimation.beginTime = 0.28
+        opacityAnimation.duration = duration - opacityAnimation.beginTime
+        opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
+
+        let group = CAAnimationGroup()
+        group.animations = [contentsAnimation, scaleAnimation, opacityAnimation]
+        group.duration = duration
+        group.delegate = coordinator
+        group.isRemovedOnCompletion = false
+        group.fillMode = .forwards
+
+        effectView.layer?.add(group, forKey: "KidoXBundledPoof")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.2) {
+            guard coordinator.animationID == animation.id else { return }
+            coordinator.finishIfNeeded(reason: "timeout")
+        }
+    }
+
+    private func playPoofSound(from soundURL: URL?, using coordinator: Coordinator) {
+        guard let soundURL,
+              let sound = NSSound(contentsOf: soundURL, byReference: true)
+        else {
+            Self.logger.debug(
+                "Bundled poof sound is not available. animationID=\(animation.id.uuidString, privacy: .public)"
+            )
+            return
+        }
+
+        coordinator.sound = sound
+        sound.play()
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, @preconcurrency CAAnimationDelegate {
+        var animationID: UUID?
+        var effectView: NSView?
+        var onFinished: (() -> Void)?
+        var sound: NSSound?
+        private(set) var didCancelPendingStart = false
+        private var didFinish = false
+        private var didStartAnimation = false
+
+        func reset(animationID: UUID) {
+            self.animationID = animationID
+            didCancelPendingStart = false
+            didFinish = false
+            didStartAnimation = false
+            onFinished = nil
+            effectView?.removeFromSuperview()
+            effectView = nil
+            sound = nil
+        }
+
+        func prepare(animationID: UUID, effectView: NSView, onFinished: @escaping () -> Void) {
+            self.animationID = animationID
+            self.effectView?.removeFromSuperview()
+            self.effectView = effectView
+            self.onFinished = onFinished
+            didCancelPendingStart = false
+            didFinish = false
+            didStartAnimation = true
+        }
+
+        func cancelPendingStart(reason: String) {
+            guard !didFinish else { return }
+            guard !didStartAnimation else {
+                finishIfNeeded(reason: reason)
+                return
+            }
+            didCancelPendingStart = true
+            NativePoofEffectView.logger.debug(
+                "Cancelled poof host view start. animationID=\((self.animationID?.uuidString ?? "unknown"), privacy: .public) reason=\(reason, privacy: .public)"
+            )
+            effectView?.removeFromSuperview()
+            effectView = nil
+            sound = nil
+            onFinished = nil
+            animationID = nil
+        }
+
+        func animationDidStop(_ anim: CAAnimation, finished flag: Bool) {
+            finishIfNeeded(reason: flag ? "completed" : "interrupted")
+        }
+
+        func finishIfNeeded(reason: String) {
+            guard !didFinish else { return }
+            didFinish = true
+
+            NativePoofEffectView.logger.debug(
+                "Bundled poof animation finished. animationID=\((self.animationID?.uuidString ?? "unknown"), privacy: .public) reason=\(reason, privacy: .public)"
+            )
+
+            effectView?.removeFromSuperview()
+            effectView = nil
+            sound = nil
+            didStartAnimation = false
+            let completion = onFinished
+            onFinished = nil
+            animationID = nil
+            completion?()
+        }
+    }
+
+    private struct BundledPoofResources {
+        let frames: [CGImage]
+        let soundURL: URL?
+
+        static func load() -> BundledPoofResources? {
+            let frames = (1...5).compactMap { index -> CGImage? in
+                guard let url = Bundle.main.url(
+                    forResource: "poof\(index)",
+                    withExtension: "png",
+                    subdirectory: "Poof"
+                ),
+                    let image = NSImage(contentsOf: url)
+                else { return nil }
+
+                return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            }
+
+            guard frames.count == 5 else { return nil }
+
+            let soundURL = Bundle.main.url(
+                forResource: "poof",
+                withExtension: "aif",
+                subdirectory: "Poof"
+            )
+            return BundledPoofResources(frames: frames, soundURL: soundURL)
+        }
     }
 }
 

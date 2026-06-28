@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import SwiftUI
 
 enum SearchDragLog {
@@ -398,6 +399,11 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
 }
 
 struct KidoXForegroundLayer: View {
+    private static let uninstallerLogger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.clyapps.KidoX",
+        category: "Uninstaller"
+    )
+
     @Bindable var store: KidoXStore
     let onDismiss: () -> Void
     let onLaunchApp: () -> Void
@@ -576,14 +582,26 @@ struct KidoXForegroundLayer: View {
                         animation: uninstallCompletionAnimation,
                         onFinished: {
                             guard self.uninstallCompletionAnimation?.id == uninstallCompletionAnimation.id else { return }
+                            Self.uninstallerLogger.notice(
+                                "Poof completion callback received. animationID=\(uninstallCompletionAnimation.id.uuidString, privacy: .public) item='\(uninstallCompletionAnimation.item.effectiveDisplayName, privacy: .public)' itemID=\(uninstallCompletionAnimation.item.id.uuidString, privacy: .public)"
+                            )
                             let compactionRequest = GridCompactionAnimationRequest(
                                 id: UUID(),
                                 removedItemID: uninstallCompletionAnimation.item.id
                             )
                             gridCompactionAnimationRequest = compactionRequest
+                            Self.uninstallerLogger.debug(
+                                "Created grid compaction request after poof. requestID=\(compactionRequest.id.uuidString, privacy: .public) removedItemID=\(compactionRequest.removedItemID.uuidString, privacy: .public)"
+                            )
                             self.uninstallCompletionAnimation = nil
                             withAnimation(.snappy(duration: 0.22)) {
                                 let pageMutationResult = store.removeUninstalledApplicationRecord(uninstallCompletionAnimation.item)
+                                let removedItemID = uninstallCompletionAnimation.item.id.uuidString
+                                let removedPageCount = pageMutationResult.removedPagePositions.count
+                                let didRemovePages = pageMutationResult.didRemovePages
+                                Self.uninstallerLogger.debug(
+                                    "Removed uninstalled app record after poof. itemID=\(removedItemID, privacy: .public) removedPages=\(removedPageCount, privacy: .public) didRemovePages=\(didRemovePages, privacy: .public)"
+                                )
                                 applyPageMutationResult(pageMutationResult)
                                 reconcileOpenFolderAfterUninstall()
                                 ensureKeyboardSelectionIsValid()
@@ -591,6 +609,9 @@ struct KidoXForegroundLayer: View {
                             focusSearchField()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                                 if gridCompactionAnimationRequest?.id == compactionRequest.id {
+                                    Self.uninstallerLogger.debug(
+                                        "Clearing grid compaction request. requestID=\(compactionRequest.id.uuidString, privacy: .public)"
+                                    )
                                     gridCompactionAnimationRequest = nil
                                 }
                             }
@@ -1338,6 +1359,15 @@ struct KidoXForegroundLayer: View {
     private func performInlineUninstall(_ item: LaunchItem, plan: ApplicationUninstallPlan) async -> Bool {
         uninstallSession?.phase = .uninstalling(plan)
         let completionAnimation = makeUninstallCompletionAnimation(for: item, size: currentSize)
+        if let completionAnimation {
+            Self.uninstallerLogger.notice(
+                "Prepared poof animation for uninstall. animationID=\(completionAnimation.id.uuidString, privacy: .public) item='\(item.effectiveDisplayName, privacy: .public)' itemID=\(item.id.uuidString, privacy: .public) center=(\(completionAnimation.center.x, privacy: .public), \(completionAnimation.center.y, privacy: .public)) iconSize=\(completionAnimation.iconSize, privacy: .public) container=(\(completionAnimation.containerSize.width, privacy: .public), \(completionAnimation.containerSize.height, privacy: .public))"
+            )
+        } else {
+            Self.uninstallerLogger.error(
+                "Could not prepare poof animation for uninstall. item='\(item.effectiveDisplayName, privacy: .public)' itemID=\(item.id.uuidString, privacy: .public) currentSize=(\(currentSize.width, privacy: .public), \(currentSize.height, privacy: .public))"
+            )
+        }
 
         do {
             let uninstallResult = try await store.uninstallApplicationKeepingRecord(item, plan: plan)
@@ -1351,9 +1381,18 @@ struct KidoXForegroundLayer: View {
             } else {
                 setUninstallSession(nil)
                 if let completionAnimation {
+                    Self.uninstallerLogger.notice(
+                        "Starting poof overlay after successful uninstall. animationID=\(completionAnimation.id.uuidString, privacy: .public) itemID=\(item.id.uuidString, privacy: .public)"
+                    )
                     uninstallCompletionAnimation = completionAnimation
                 } else {
                     let pageMutationResult = store.removeUninstalledApplicationRecord(item)
+                    let itemID = item.id.uuidString
+                    let removedPageCount = pageMutationResult.removedPagePositions.count
+                    let didRemovePages = pageMutationResult.didRemovePages
+                    Self.uninstallerLogger.debug(
+                        "Removed uninstalled app record without poof animation. itemID=\(itemID, privacy: .public) removedPages=\(removedPageCount, privacy: .public) didRemovePages=\(didRemovePages, privacy: .public)"
+                    )
                     applyPageMutationResult(pageMutationResult)
                     reconcileOpenFolderAfterUninstall()
                     ensureKeyboardSelectionIsValid()

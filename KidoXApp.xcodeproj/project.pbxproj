@@ -48,6 +48,7 @@
 		B9F0364C9AE5896547A90BBF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */; };
 		CCB4D327FBE48D51B880EFDB /* KidoXIPC.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */ = {isa = PBXBuildFile; fileRef = D26EF870054B45358116382D /* KidoXMinimal.icns */; };
+		D2B7062A8DBB9E674D9AAE9B /* Poof in Resources */ = {isa = PBXBuildFile; fileRef = D2B7062B8DBB9E674D9AAE9B /* Poof */; };
 		DFE2E0CF2FECCACB00051B70 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE2E0CE2FECCAC100051B70 /* UninstallerView.swift */; };
 		E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0680A3CD8545019456F5B5BA /* KidoX.icon */; };
 /* End PBXBuildFile section */
@@ -150,6 +151,7 @@
 		B7A4E9C21D2F4A31A1B2C3D4 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B7A4E9C41D2F4A31A1B2C3D4 /* SettingsWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		D26EF870054B45358116382D /* KidoXMinimal.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = KidoXMinimal.icns; sourceTree = "<group>"; };
+		D2B7062B8DBB9E674D9AAE9B /* Poof */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Poof; sourceTree = "<group>"; };
 		D62244C9FAF6556BFE100083 /* KidoXDockPinning.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDockPinning.swift; sourceTree = "<group>"; };
 		DAE85AA7DC3E9BBD736879FB /* LaunchItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchItem.swift; sourceTree = "<group>"; };
 		DFE2E0CE2FECCAC100051B70 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
@@ -339,6 +341,7 @@
 			isa = PBXGroup;
 			children = (
 				D2B706298DBB9E674D9AAE9B /* Icons */,
+				D2B7062B8DBB9E674D9AAE9B /* Poof */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -534,6 +537,7 @@
 			files = (
 				A1000000000000000000001D /* Localizable.xcstrings in Resources */,
 				D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */,
+				D2B7062A8DBB9E674D9AAE9B /* Poof in Resources */,
 				E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -767,7 +771,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LCR49HJMTK;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -796,7 +800,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LCR49HJMTK;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
