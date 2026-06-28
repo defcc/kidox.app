@@ -79,6 +79,8 @@ enum KidoXL10nKey: String {
     case appDataPermissionDescription = "Allow KidoX in Privacy & Security > Full Disk Access, then retry these sandbox data items."
     case mayRequireAppDataPermission = "Some sandbox data may require Full Disk Access."
     case requiresPermission = "Requires Permission"
+    case setUpUninstallerPermissions = "Set Up Uninstaller Permissions"
+    case setUpKidoXUninstallerBeforeUninstallingApps = "Set up KidoX Uninstaller before uninstalling apps."
     case grantPermission = "Grant Permission"
     case openPrivacySettings = "Open Full Disk Access"
     case retryFailedItems = "Retry Failed Items"

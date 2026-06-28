@@ -154,6 +154,23 @@
         }
       }
     },
+    "Activating" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効化中"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在激活"
+          }
+        }
+      }
+    },
     "Activation" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -167,6 +184,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "激活"
+          }
+        }
+      }
+    },
+    "Active" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有効"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已激活"
           }
         }
       }
@@ -303,6 +337,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "高级排序"
+          }
+        }
+      }
+    },
+    "Advanced Uninstall" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高度なアンインストール"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级卸载"
+          }
+        }
+      }
+    },
+    "Advanced uninstall is enabled" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高度なアンインストールは有効です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级卸载已启用"
+          }
+        }
+      }
+    },
+    "Advanced uninstall is not enabled" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高度なアンインストールは有効ではありません"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级卸载未启用"
+          }
+        }
+      }
+    },
+    "Advanced uninstall requires Pro" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高度なアンインストールには Pro が必要です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级卸载需要 Pro"
+          }
+        }
+      }
+    },
+    "Advanced uninstall update available" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高度なアンインストールのアップデートがあります"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级卸载有可用更新"
           }
         }
       }
@@ -919,6 +1038,57 @@
         }
       }
     },
+    "Data cleanup requires Pro" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データのクリーンアップには Pro が必要です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据清理需要 Pro"
+          }
+        }
+      }
+    },
+    "Deactivate This Mac" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Mac を無効化"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停用这台 Mac"
+          }
+        }
+      }
+    },
+    "Deactivating" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無効化中"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在停用"
+          }
+        }
+      }
+    },
     "Debug" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1191,6 +1361,91 @@
         }
       }
     },
+    "Free" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無料"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免费"
+          }
+        }
+      }
+    },
+    "Free users can uninstall apps that macOS allows KidoX to move to Trash. Pro users can install the helper to remove root-owned and many Mac App Store apps." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無料ユーザーは、macOS が KidoX にゴミ箱への移動を許可するアプリをアンインストールできます。Pro ユーザーはヘルパーをインストールして、root 所有のアプリや多くの Mac App Store アプリを削除できます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "免费用户可以卸载 macOS 允许 KidoX 移到废纸篓的 App。Pro 用户可以安装 helper 来移除 root 拥有的 App 和许多 Mac App Store App。"
+          }
+        }
+      }
+    },
+    "Full Disk Access" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセス"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全磁盘访问权限"
+          }
+        }
+      }
+    },
+    "Full Disk Access is enabled" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセスは有効です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全磁盘访问权限已启用"
+          }
+        }
+      }
+    },
+    "Full Disk Access is not enabled" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルディスクアクセスは有効ではありません"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完全磁盘访问权限未启用"
+          }
+        }
+      }
+    },
     "Full Disk Access required" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1276,6 +1531,23 @@
         }
       }
     },
+    "Grant Full Disk Access so KidoX can scan and remove app data in protected Library folders such as Containers and Group Containers." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX が Containers や Group Containers などの保護された Library フォルダ内のアプリデータをスキャンして削除できるように、フルディスクアクセスを許可してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授予完全磁盘访问权限后，KidoX 可以扫描并移除 Containers 和 Group Containers 等受保护 Library 文件夹中的 App 数据。"
+          }
+        }
+      }
+    },
     "Grant Permission" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1323,6 +1595,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "帮助中心"
+          }
+        }
+      }
+    },
+    "Helper is not installed." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper はインストールされていません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper 尚未安装。"
+          }
+        }
+      }
+    },
+    "Helper version %@ is installed." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper バージョン %@ がインストールされています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已安装 Helper 版本 %@。"
+          }
+        }
+      }
+    },
+    "Helper version %@ is installed. Version %@ is available." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper バージョン %@ がインストールされています。バージョン %@ を利用できます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已安装 Helper 版本 %@。版本 %@ 可用。"
           }
         }
       }
@@ -1531,6 +1854,40 @@
         }
       }
     },
+    "Included With Pro" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro に含まれる機能"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro 包含的功能"
+          }
+        }
+      }
+    },
+    "Included With Your License" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライセンスに含まれる機能"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的许可证包含"
+          }
+        }
+      }
+    },
     "Includes layout, hidden apps, usage stats, sorting, keyboard shortcut, appearance, Dock icon, and custom image. License and launch-at-login stay on this Mac." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1544,6 +1901,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "包含布局、隐藏 App、使用统计、排序、快捷键、外观、Dock 图标和自定义图片。许可证和登录启动设置仍保留在这台 Mac 上。"
+          }
+        }
+      }
+    },
+    "Install Helper" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper をインストール"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装 Helper"
+          }
+        }
+      }
+    },
+    "Install the helper once to remove root-owned and Mac App Store apps without repeated administrator prompts." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper を一度インストールすると、管理者プロンプトを繰り返さずに root 所有のアプリや Mac App Store アプリを削除できます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装一次 helper 后，即可移除 root 拥有的 App 和 Mac App Store App，避免重复出现管理员提示。"
           }
         }
       }
@@ -1599,6 +1990,23 @@
         }
       }
     },
+    "KidoX can access protected Library folders for app data cleanup." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX はアプリデータのクリーンアップに必要な保護された Library フォルダへアクセスできます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX 可以访问受保护的 Library 文件夹来清理 App 数据。"
+          }
+        }
+      }
+    },
     "KidoX covers the menu bar while open." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1616,6 +2024,23 @@
         }
       }
     },
+    "KidoX Free" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX Free"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX Free"
+          }
+        }
+      }
+    },
     "KidoX needs permission to access data from other apps before it can remove sandbox app data." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1629,6 +2054,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "KidoX 需要访问其他 App 数据的权限，才能删除这些沙盒 App 数据。"
+          }
+        }
+      }
+    },
+    "KidoX Pro" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX Pro"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX Pro"
+          }
+        }
+      }
+    },
+    "KidoX Pro Trial" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX Pro トライアル"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KidoX Pro 试用"
           }
         }
       }
@@ -2418,6 +2877,23 @@
         }
       }
     },
+    "Remove app data and apps that require administrator permission." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリデータと管理者権限が必要なアプリを削除できます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除 App 数据和需要管理员权限的 App。"
+          }
+        }
+      }
+    },
     "Rename" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2669,6 +3145,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "全选"
+          }
+        }
+      }
+    },
+    "Set up KidoX Uninstaller before uninstalling apps." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリをアンインストールする前に、KidoX アンインストーラを設定してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先设置 KidoX 卸载器，再卸载 App。"
+          }
+        }
+      }
+    },
+    "Set Up Uninstaller Permissions" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アンインストーラの権限を設定"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置卸载权限"
           }
         }
       }
@@ -3132,6 +3642,23 @@
         }
       }
     },
+    "Trial" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トライアル"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试用"
+          }
+        }
+      }
+    },
     "Turn on to open KidoX with the F4 or Launchpad key." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3302,6 +3829,23 @@
         }
       }
     },
+    "Uninstaller" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アンインストーラ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "卸载器"
+          }
+        }
+      }
+    },
     "Uninstalling..." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3332,6 +3876,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "解锁纯色、自定义颜色和自定义图片背景。"
+          }
+        }
+      }
+    },
+    "Update Helper" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Helper をアップデート"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新 Helper"
+          }
+        }
+      }
+    },
+    "Upgrade to Pro to remove apps that require administrator permission." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者権限が必要なアプリを削除するには Pro にアップグレードしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级到 Pro 后可移除需要管理员权限的 App。"
+          }
+        }
+      }
+    },
+    "Upgrade to Pro to scan and remove app data in protected Library folders." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保護された Library フォルダ内のアプリデータをスキャンして削除するには Pro にアップグレードしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级到 Pro 后可扫描并移除受保护 Library 文件夹中的 App 数据。"
           }
         }
       }
@@ -3451,6 +4046,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版本 %1$@ 可用"
+          }
+        }
+      }
+    },
+    "Waiting for administrator authorization..." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理者認証を待っています..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待管理员授权..."
           }
         }
       }

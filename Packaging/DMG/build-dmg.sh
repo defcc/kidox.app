@@ -115,6 +115,8 @@ OUTPUT_DIR="$ROOT_DIR/Releases"
 OUTPUT_DMG="$OUTPUT_DIR/${APP_NAME}-${DMG_VERSION}.dmg"
 APP_BUNDLE="$DERIVED_DATA/Build/Products/$CONFIGURATION/${APP_NAME}.app"
 STAGE_APP="$STAGE_DIR/${APP_NAME}.app"
+PRIVILEGED_HELPER_NAME="com.clyapps.KidoX.PrivilegedHelper"
+STAGE_PRIVILEGED_HELPER="$STAGE_APP/Contents/Library/LaunchServices/$PRIVILEGED_HELPER_NAME"
 
 log() {
   printf '\n==> %s\n' "$*"
@@ -191,6 +193,18 @@ sign_app_if_requested() {
     return
   fi
 
+  if [[ -f "$STAGE_PRIVILEGED_HELPER" ]]; then
+    log "Signing privileged helper with $DEVELOPER_ID_APPLICATION"
+    /usr/bin/codesign \
+      --force \
+      --options runtime \
+      --timestamp \
+      --sign "$DEVELOPER_ID_APPLICATION" \
+      "$STAGE_PRIVILEGED_HELPER"
+
+    /usr/bin/codesign --verify --strict --verbose=2 "$STAGE_PRIVILEGED_HELPER"
+  fi
+
   log "Signing app with $DEVELOPER_ID_APPLICATION"
   /usr/bin/codesign \
     --force \
@@ -201,6 +215,38 @@ sign_app_if_requested() {
     "$STAGE_APP"
 
   /usr/bin/codesign --verify --deep --strict --verbose=2 "$STAGE_APP"
+}
+
+submit_for_notarization() {
+  local artifact="$1"
+  local label="$2"
+  local result_json="$TMP_DIR/notarytool-${label}.json"
+  local notary_id
+  local notary_status
+
+  rm -f "$result_json"
+  if ! /usr/bin/xcrun notarytool submit "$artifact" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json >"$result_json"; then
+    cat "$result_json" >&2 || true
+    notary_id="$(/usr/bin/plutil -extract id raw -o - "$result_json" 2>/dev/null || true)"
+    if [[ -n "$notary_id" ]]; then
+      log "Fetching notarization log for $notary_id"
+      /usr/bin/xcrun notarytool log "$notary_id" --keychain-profile "$NOTARY_PROFILE" || true
+    fi
+    exit 1
+  fi
+
+  cat "$result_json"
+  notary_status="$(/usr/bin/plutil -extract status raw -o - "$result_json" 2>/dev/null || true)"
+  notary_id="$(/usr/bin/plutil -extract id raw -o - "$result_json" 2>/dev/null || true)"
+
+  if [[ "$notary_status" != "Accepted" ]]; then
+    echo "Notarization failed for $artifact with status: ${notary_status:-unknown}" >&2
+    if [[ -n "$notary_id" ]]; then
+      log "Fetching notarization log for $notary_id"
+      /usr/bin/xcrun notarytool log "$notary_id" --keychain-profile "$NOTARY_PROFILE" || true
+    fi
+    exit 1
+  fi
 }
 
 sign_dmg_if_requested() {
@@ -275,7 +321,7 @@ notarize_dmg_if_requested() {
   fi
 
   log "Submitting DMG for notarization with keychain profile $NOTARY_PROFILE"
-  /usr/bin/xcrun notarytool submit "$OUTPUT_DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+  submit_for_notarization "$OUTPUT_DMG" "dmg"
 
   log "Stapling notarization ticket"
   /usr/bin/xcrun stapler staple "$OUTPUT_DMG"
@@ -311,7 +357,7 @@ notarize_app_if_requested() {
   /usr/bin/ditto -c -k --keepParent "$STAGE_APP" "$app_zip"
 
   log "Submitting app for notarization with keychain profile $NOTARY_PROFILE"
-  /usr/bin/xcrun notarytool submit "$app_zip" --keychain-profile "$NOTARY_PROFILE" --wait
+  submit_for_notarization "$app_zip" "app"
 
   log "Stapling notarization ticket to app"
   /usr/bin/xcrun stapler staple "$STAGE_APP"

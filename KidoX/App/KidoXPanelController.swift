@@ -263,6 +263,10 @@ final class KidoXPanelController {
                 self?.hideImmediatelyForSettings()
                 self?.onOpenSettings(.license)
             },
+            onOpenUninstallerSettings: { [weak self] in
+                self?.hideImmediatelyForSettings()
+                self?.onOpenSettings(.uninstaller)
+            },
             onModalInteractionChanged: { [weak self] isActive in
                 self?.keepsPanelOpenForModalInteraction = isActive
             },

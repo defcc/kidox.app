@@ -11,6 +11,7 @@ import SwiftUI
 struct UninstallPanelSession: Identifiable, Equatable {
     enum Phase: Equatable {
         case planning
+        case setupRequired(missingFullDiskAccess: Bool, missingHelper: Bool)
         case confirming(ApplicationUninstallPlan)
         case uninstalling(ApplicationUninstallPlan)
         case completed(ApplicationUninstallResult)
@@ -21,6 +22,8 @@ struct UninstallPanelSession: Identifiable, Equatable {
             switch (lhs, rhs) {
             case (.planning, .planning):
                 return true
+            case (.setupRequired(let lhsFDA, let lhsHelper), .setupRequired(let rhsFDA, let rhsHelper)):
+                return lhsFDA == rhsFDA && lhsHelper == rhsHelper
             case (.confirming(let lhsPlan), .confirming(let rhsPlan)),
                  (.uninstalling(let lhsPlan), .uninstalling(let rhsPlan)):
                 return lhsPlan.bundleIdentifier == rhsPlan.bundleIdentifier
@@ -77,6 +80,7 @@ struct UninstallPanelRouteView: NSViewRepresentable {
     let onConfirm: (LaunchItem, ApplicationUninstallPlan) async -> Bool
     let onRetryFailedItems: (ApplicationUninstallResult) async -> Bool
     let onOpenPrivacySettings: () -> Void
+    let onOpenUninstallerSettings: () -> Void
     let onRevealInFinder: (LaunchItem) -> Void
     let onUpgradeToPro: () -> Void
 
@@ -120,6 +124,7 @@ struct UninstallPanelRouteView: NSViewRepresentable {
                 onConfirm: parent.onConfirm,
                 onRetryFailedItems: parent.onRetryFailedItems,
                 onOpenPrivacySettings: parent.onOpenPrivacySettings,
+                onOpenUninstallerSettings: parent.onOpenUninstallerSettings,
                 onRevealInFinder: parent.onRevealInFinder,
                 onUpgradeToPro: parent.onUpgradeToPro
             )
@@ -209,7 +214,7 @@ struct UninstallPanelRouteView: NSViewRepresentable {
             let fittingSize = hostingController.view.fittingSize
             popover.contentSize = NSSize(
                 width: max(420, fittingSize.width),
-                height: max(180, fittingSize.height)
+                height: max(150, fittingSize.height)
             )
         }
 
@@ -234,6 +239,7 @@ private struct UninstallPopoverContent: View {
     let onConfirm: (LaunchItem, ApplicationUninstallPlan) async -> Bool
     let onRetryFailedItems: (ApplicationUninstallResult) async -> Bool
     let onOpenPrivacySettings: () -> Void
+    let onOpenUninstallerSettings: () -> Void
     let onRevealInFinder: (LaunchItem) -> Void
     let onUpgradeToPro: () -> Void
 
@@ -244,7 +250,16 @@ private struct UninstallPopoverContent: View {
                 UninstallProgressPopover(
                     item: session.item,
                     title: KidoXL10n.format(.uninstallTitle, session.item.effectiveDisplayName),
-                    message: KidoXL10n.string(.scanningRelatedAppData)
+                    message: KidoXL10n.ui("Checking uninstaller permissions...")
+                )
+
+            case .setupRequired(let missingFullDiskAccess, let missingHelper):
+                UninstallSetupRequiredPopover(
+                    item: session.item,
+                    missingFullDiskAccess: missingFullDiskAccess,
+                    missingHelper: missingHelper,
+                    onCancel: onCancel,
+                    onOpenUninstallerSettings: onOpenUninstallerSettings
                 )
 
             case .confirming(let plan):
@@ -428,10 +443,6 @@ private struct UninstallConfirmationPopover: View {
                     .init(symbol: "sum", title: KidoXL10n.string(.total), value: formattedByteCount(plan.totalRecoverableByteCount))
                 ])
 
-                if shouldShowPermissionNotice {
-                    UninstallPermissionNotice(onOpenPrivacySettings: onOpenPrivacySettings)
-                }
-
                 if !isPro {
                     UninstallUpgradeNotice(onUpgradeToPro: onUpgradeToPro)
                 }
@@ -484,10 +495,6 @@ private struct UninstallConfirmationPopover: View {
         [.app(item: item, url: plan.appURL, byteCount: plan.appByteCount)]
             + plan.dataTargets.map { .data($0) }
     }
-
-    private var shouldShowPermissionNotice: Bool {
-        !hasFullDiskAccess && plan.dataTargets.contains { $0.requiresFullDiskAccess }
-    }
 }
 
 private struct UninstallProgressPopover: View {
@@ -516,6 +523,61 @@ private struct UninstallProgressPopover: View {
                         .init(symbol: "app", title: KidoXL10n.string(.app), value: formattedByteCount(plan.appByteCount))
                     ])
                 }
+            }
+        }
+    }
+}
+
+private struct UninstallSetupRequiredPopover: View {
+    let item: LaunchItem
+    let missingFullDiskAccess: Bool
+    let missingHelper: Bool
+    let onCancel: () -> Void
+    let onOpenUninstallerSettings: () -> Void
+
+    var body: some View {
+        UninstallPopoverChrome {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .center, spacing: 14) {
+                    Image(nsImage: IconCache.rasterizedIcon(for: item.sourcePath, pointSize: 46))
+                        .frame(width: 46, height: 46)
+                        .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(KidoXL10n.string(.setUpUninstallerPermissions))
+                            .font(.system(size: 19, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.84)
+
+                        Text(KidoXL10n.string(.setUpKidoXUninstallerBeforeUninstallingApps))
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .layoutPriority(1)
+                }
+                .padding(.bottom, 14)
+
+                Rectangle()
+                    .fill(.primary.opacity(0.07))
+                    .frame(height: 1)
+
+                HStack(spacing: 10) {
+                    Button(KidoXL10n.string(.cancel), action: onCancel)
+                        .buttonStyle(UninstallSecondaryButtonStyle())
+
+                    Spacer()
+
+                    Button(action: onOpenUninstallerSettings) {
+                        Text(KidoXL10n.string(.grantPermission))
+                            .frame(minWidth: 138)
+                    }
+                        .buttonStyle(UninstallPrimaryButtonStyle())
+                }
+                .padding(.top, 12)
             }
         }
     }
@@ -871,7 +933,57 @@ private struct UninstallMetric: Identifiable {
     let value: String
 }
 
+private struct UninstallSetupNotice: View {
+    let missingFullDiskAccess: Bool
+    let missingHelper: Bool
+    let isCheckingHelper: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 24, height: 24)
+                .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(KidoXL10n.string(.setUpUninstallerPermissions))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(message)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(9)
+        .background(.orange.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(.orange.opacity(0.14), lineWidth: 1)
+        }
+    }
+
+    private var message: String {
+        if isCheckingHelper {
+            return KidoXL10n.ui("KidoX is checking Advanced Uninstall. Use Settings > Uninstaller to grant missing permissions.")
+        }
+        if missingFullDiskAccess && missingHelper {
+            return KidoXL10n.ui("Grant Full Disk Access and install KidoX Helper in Settings > Uninstaller before uninstalling apps.")
+        }
+        if missingFullDiskAccess {
+            return KidoXL10n.ui("Grant Full Disk Access in Settings > Uninstaller before uninstalling apps.")
+        }
+        return KidoXL10n.ui("Install KidoX Helper in Settings > Uninstaller before uninstalling apps.")
+    }
+}
+
 private struct UninstallPermissionNotice: View {
+    var isRequired = false
     let onOpenPrivacySettings: () -> Void
 
     var body: some View {
@@ -882,15 +994,17 @@ private struct UninstallPermissionNotice: View {
                 .frame(width: 24, height: 24)
                 .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 
-            Text(KidoXL10n.string(.mayRequireAppDataPermission))
+            Text(isRequired ? KidoXL10n.ui("Full Disk Access is required before uninstalling this app.") : KidoXL10n.string(.mayRequireAppDataPermission))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
             Spacer(minLength: 8)
 
-            Button(KidoXL10n.string(.grantPermission), action: onOpenPrivacySettings)
-                .buttonStyle(UninstallInlineButtonStyle())
+            if !isRequired {
+                Button(KidoXL10n.string(.grantPermission), action: onOpenPrivacySettings)
+                    .buttonStyle(UninstallInlineButtonStyle())
+            }
         }
         .padding(9)
         .background(.orange.opacity(0.07), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1013,42 +1127,50 @@ private struct UninstallTargetRow: View {
     let showsPermissionBadge: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 10) {
             icon
                 .frame(width: 22, height: 22)
+                .padding(.top, 1)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(target.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    if showsPermissionBadge {
-                        Text(KidoXL10n.string(.requiresPermission))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text(target.title)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
                             .lineLimit(1)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(.orange.opacity(0.12), in: Capsule())
+
+                        if showsPermissionBadge {
+                            Text(KidoXL10n.string(.requiresPermission))
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.orange)
+                                .lineLimit(1)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(.orange.opacity(0.12), in: Capsule())
+                        }
                     }
+                    .layoutPriority(1)
+
+                    Spacer(minLength: 8)
+
+                    Text(formattedByteCount(target.byteCount))
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(minWidth: 56, alignment: .trailing)
                 }
 
-                Text(target.url.path)
+                Text(breakablePath(target.url.path))
                     .font(.system(size: 11, weight: .regular, design: .monospaced))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                    .help(target.url.path)
             }
-
-            Spacer(minLength: 8)
-
-            Text(formattedByteCount(target.byteCount))
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
@@ -1081,7 +1203,7 @@ private enum UninstallDisplayTarget: Identifiable {
         case .app(let item, _, _):
             item.effectiveDisplayName
         case .data(let target):
-            target.url.deletingPathExtension().lastPathComponent
+            target.url.lastPathComponent
         }
     }
 
@@ -1190,4 +1312,8 @@ private func formattedByteCount(_ byteCount: Int64) -> String {
         return KidoXL10n.ui("Zero KB")
     }
     return ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
+}
+
+private func breakablePath(_ path: String) -> String {
+    path.replacingOccurrences(of: "/", with: "/\u{200B}")
 }

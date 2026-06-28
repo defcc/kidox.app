@@ -403,6 +403,7 @@ struct KidoXForegroundLayer: View {
     let onLaunchApp: () -> Void
     let onOpenSettings: () -> Void
     let onOpenLicenseSettings: () -> Void
+    let onOpenUninstallerSettings: () -> Void
     let onModalInteractionChanged: (Bool) -> Void
     let onRestoreFocusAfterModalInteraction: () -> Void
     @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
@@ -454,6 +455,8 @@ struct KidoXForegroundLayer: View {
     @State private var uninstallCompletionAnimation: UninstallCompletionAnimation?
     @State private var gridCompactionAnimationRequest: GridCompactionAnimationRequest?
     @State private var hasFullDiskAccess = Self.detectFullDiskAccess()
+
+    private let privilegedHelperClient = KidoXPrivilegedHelperClient()
 
     private let dragActivationDistance: CGFloat = 6
     private let pageTurnReleaseThreshold: CGFloat = 64
@@ -551,6 +554,10 @@ struct KidoXForegroundLayer: View {
                         onOpenPrivacySettings: {
                             openAppDataPrivacySettings()
                         },
+                        onOpenUninstallerSettings: {
+                            setUninstallSession(nil)
+                            onOpenUninstallerSettings()
+                        },
                         onRevealInFinder: { item in
                             store.revealInFinder(item)
                         },
@@ -605,6 +612,9 @@ struct KidoXForegroundLayer: View {
             }
         }
         .ignoresSafeArea()
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            hasFullDiskAccess = Self.detectFullDiskAccess()
+        }
         .onChange(of: store.searchFocusRequestID) { _, _ in
             focusSearchField()
         }
@@ -1276,10 +1286,6 @@ struct KidoXForegroundLayer: View {
             ))
             return
         }
-        guard isPro || ApplicationUninstaller.canMoveApplicationToTrashWithoutPrivileges(at: item.url) else {
-            setUninstallSession(UninstallPanelSession(item: item, phase: .blockedForFree))
-            return
-        }
 
         let session = UninstallPanelSession(item: item, phase: .planning)
         setUninstallSession(session)
@@ -1288,6 +1294,22 @@ struct KidoXForegroundLayer: View {
 
         Task { @MainActor in
             do {
+                let helperIsReady = await isPrivilegedHelperReady()
+                hasFullDiskAccess = Self.detectFullDiskAccess()
+                if !hasFullDiskAccess || !helperIsReady {
+                    guard uninstallSession?.id == session.id else { return }
+                    uninstallSession?.phase = .setupRequired(
+                        missingFullDiskAccess: !hasFullDiskAccess,
+                        missingHelper: !helperIsReady
+                    )
+                    return
+                }
+                guard isPro || ApplicationUninstaller.canMoveApplicationToTrashWithoutPrivileges(at: item.url) else {
+                    guard uninstallSession?.id == session.id else { return }
+                    uninstallSession?.phase = .blockedForFree
+                    return
+                }
+
                 let plan = try await store.makeUninstallPlan(for: item)
                 guard uninstallSession?.id == session.id else { return }
                 uninstallSession?.phase = .confirming(plan)
@@ -1300,6 +1322,16 @@ struct KidoXForegroundLayer: View {
 
     private func canUninstall(_ item: LaunchItem) -> Bool {
         item.kind == .application && ApplicationUninstaller.canUninstallApplication(at: item.url)
+    }
+
+    @MainActor
+    private func isPrivilegedHelperReady() async -> Bool {
+        do {
+            let version = try await privilegedHelperClient.installedHelperVersion()
+            return version.compare(KidoXPrivilegedHelper.version, options: .numeric) != .orderedAscending
+        } catch {
+            return false
+        }
     }
 
     @MainActor

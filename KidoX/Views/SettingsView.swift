@@ -2012,8 +2012,13 @@ private struct LicensePane: View {
     private var trimmedKey: String { licenseKey.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private var planTitle: String {
-        if isTrial { return "KidoX Pro Trial" }
-        return isPro ? "KidoX \(licensePlan.capitalized)" : "KidoX Free"
+        if isTrial {
+            return KidoXL10n.ui("KidoX Pro Trial", languageRawValue: appLanguageRaw)
+        }
+        if isPro, licensePlan.caseInsensitiveCompare("pro") == .orderedSame {
+            return KidoXL10n.ui("KidoX Pro", languageRawValue: appLanguageRaw)
+        }
+        return isPro ? "KidoX \(licensePlan.capitalized)" : KidoXL10n.ui("KidoX Free", languageRawValue: appLanguageRaw)
     }
 
     private var statusText: String {
@@ -2173,6 +2178,7 @@ private struct LicenseStatusCard: View {
 private struct LicensePlanBadge: View {
     let isPro: Bool
     let isTrial: Bool
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         Text(badgeText)
@@ -2187,8 +2193,10 @@ private struct LicensePlanBadge: View {
     }
 
     private var badgeText: String {
-        if isTrial { return "Trial" }
-        return isPro ? "Active" : "Free"
+        if isTrial { return KidoXL10n.ui("Trial", languageRawValue: appLanguageRaw) }
+        return isPro
+            ? KidoXL10n.ui("Active", languageRawValue: appLanguageRaw)
+            : KidoXL10n.ui("Free", languageRawValue: appLanguageRaw)
     }
 
     private var badgeColor: Color {
