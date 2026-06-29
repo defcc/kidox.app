@@ -37,6 +37,11 @@ private struct VisibleItemsCacheKey: Hashable {
     let query: String
 }
 
+private struct InitialLayoutGroup {
+    var root: LaunchItem
+    var children: [LaunchItem] = []
+}
+
 enum IconCache {
     private static let diskCacheDirectory: URL = {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -1230,18 +1235,66 @@ final class KidoXStore {
     }
 
     private func makePages(from scanned: [LaunchItem]) -> [LaunchPage] {
-        scanned
+        makeInitialLayoutGroups(from: scanned)
             .chunked(into: LaunchPage.defaultCapacity)
             .enumerated()
             .map { pageIndex, chunk in
-                let pageItems = chunk.enumerated().map { itemIndex, item in
-                    var copy = item
-                    copy.parentID = nil
-                    copy.sortIndex = itemIndex
-                    return copy
+                var pageItems: [LaunchItem] = []
+                for (rootIndex, group) in chunk.enumerated() {
+                    var root = group.root
+                    root.parentID = nil
+                    root.sortIndex = rootIndex
+                    pageItems.append(root)
+
+                    for (childIndex, childItem) in group.children.enumerated() {
+                        var child = childItem
+                        child.parentID = root.id
+                        child.sortIndex = childIndex
+                        pageItems.append(child)
+                    }
                 }
                 return LaunchPage(sortIndex: pageIndex, items: pageItems)
             }
+    }
+
+    private func makeInitialLayoutGroups(from scanned: [LaunchItem]) -> [InitialLayoutGroup] {
+        let systemUtilities = scanned.filter(isDefaultSystemUtilityApplication)
+        guard systemUtilities.count > 1 else {
+            return scanned.map { InitialLayoutGroup(root: $0) }
+        }
+
+        let systemUtilityKeys = Set(systemUtilities.map(stableKey(for:)))
+        var groups = scanned
+            .filter { !systemUtilityKeys.contains(stableKey(for: $0)) }
+            .map { InitialLayoutGroup(root: $0) }
+
+        let folderID = UUID()
+        let folderURL = URL(string: "kidox://folder/\(folderID.uuidString)")
+            ?? URL(fileURLWithPath: "/System/Applications/Utilities", isDirectory: true)
+        let folder = LaunchItem(
+            id: folderID,
+            kind: .folder,
+            displayName: applicationCategoryDisplayName("public.app-category.utilities"),
+            subtitle: "",
+            url: folderURL,
+            applicationCategory: "public.app-category.utilities",
+            sourcePath: "",
+            addedAt: systemUtilities.map(\.addedAt).min() ?? Date()
+        )
+
+        groups.append(InitialLayoutGroup(root: folder, children: systemUtilities))
+        return groups.sorted {
+            localizedNameCompare($0.root, $1.root) == .orderedAscending
+        }
+    }
+
+    private func isDefaultSystemUtilityApplication(_ item: LaunchItem) -> Bool {
+        guard item.kind == .application else { return false }
+        guard item.bundleIdentifier?.localizedLowercase.hasPrefix("com.apple.") == true else { return false }
+
+        let path = item.sourcePath.isEmpty ? item.url.path : item.sourcePath
+        return path.hasPrefix("/System/Applications/Utilities/")
+            || path.hasPrefix("/System/Cryptexes/App/System/Applications/Utilities/")
     }
 
     private func append(_ scannedItem: LaunchItem, to pages: inout [LaunchPage]) {
