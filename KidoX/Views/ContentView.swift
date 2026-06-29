@@ -1005,6 +1005,7 @@ struct KidoXForegroundLayer: View {
             isDropTarget: shouldShowDropTarget(for: item),
             metrics: appTileMetrics(for: size),
             canRename: isPro,
+            showsProBadges: !isPro,
             openAction: { open(item) },
             revealAction: { store.revealInFinder(item) },
             uninstallAction: canUninstall(item) ? {
@@ -1299,6 +1300,14 @@ struct KidoXForegroundLayer: View {
 
     private func confirmUninstall(_ item: LaunchItem) {
         guard item.kind == .application else { return }
+        guard isPro else {
+            setUninstallSession(nil)
+            resetDragState()
+            resetFolderDragState()
+            onOpenLicenseSettings()
+            return
+        }
+
         hasFullDiskAccess = Self.detectFullDiskAccess()
         guard canUninstall(item) else {
             setUninstallSession(UninstallPanelSession(
@@ -1325,12 +1334,6 @@ struct KidoXForegroundLayer: View {
                     )
                     return
                 }
-                guard isPro || ApplicationUninstaller.canMoveApplicationToTrashWithoutPrivileges(at: item.url) else {
-                    guard uninstallSession?.id == session.id else { return }
-                    uninstallSession?.phase = .blockedForFree
-                    return
-                }
-
                 let plan = try await store.makeUninstallPlan(for: item)
                 guard uninstallSession?.id == session.id else { return }
                 uninstallSession?.phase = .confirming(plan)
@@ -3894,6 +3897,7 @@ private struct AppTile: View, Equatable {
     var isRenaming: Bool = false
     var renameCommitRequestID: Int = 0
     var canRename: Bool = true
+    var showsProBadges: Bool = false
     let openAction: () -> Void
     let revealAction: () -> Void
     var uninstallAction: (() -> Void)? = nil
@@ -3916,6 +3920,7 @@ private struct AppTile: View, Equatable {
             && lhs.isRenaming == rhs.isRenaming
             && lhs.renameCommitRequestID == rhs.renameCommitRequestID
             && lhs.canRename == rhs.canRename
+            && lhs.showsProBadges == rhs.showsProBadges
     }
 
     var body: some View {
@@ -4097,21 +4102,20 @@ private struct AppTile: View, Equatable {
                 }
             }
         } else {
+            Button(KidoXL10n.string(.showInFinder)) {
+                revealAction()
+            }
             if renameAction != nil {
                 Button(canRename ? KidoXL10n.string(.rename) : "\(KidoXL10n.string(.rename))  Pro") {
                     beginRename()
                 }
             }
-            Button(KidoXL10n.string(.showInFinder)) {
-                revealAction()
-            }
             if let uninstallAction {
-                Button(KidoXL10n.string(.uninstallAppEllipsis)) {
+                Divider()
+                Button(showsProBadges ? "\(KidoXL10n.string(.uninstallAppEllipsis))  Pro" : KidoXL10n.string(.uninstallAppEllipsis)) {
                     uninstallAction()
                 }
             }
-            Divider()
-            Text(item.bundleIdentifier ?? item.sourcePath)
         }
     }
 }
@@ -6007,16 +6011,16 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             ungroupItem.representedObject = item
             menu.addItem(ungroupItem)
         } else {
+            let revealItem = NSMenuItem(title: KidoXL10n.string(.showInFinder), action: #selector(handleContextReveal(_:)), keyEquivalent: "")
+            revealItem.target = self
+            revealItem.representedObject = item
+            menu.addItem(revealItem)
+
             let renameItem = NSMenuItem(title: KidoXL10n.string(.rename), action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
             renameItem.target = self
             renameItem.representedObject = item
             renameItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.rename), showsPro: !isRenameEnabled)
             menu.addItem(renameItem)
-
-            let revealItem = NSMenuItem(title: KidoXL10n.string(.showInFinder), action: #selector(handleContextReveal(_:)), keyEquivalent: "")
-            revealItem.target = self
-            revealItem.representedObject = item
-            menu.addItem(revealItem)
 
             let hideItem = NSMenuItem(title: KidoXL10n.string(.hideApp), action: #selector(handleContextHide(_:)), keyEquivalent: "")
             hideItem.target = self
@@ -6025,17 +6029,14 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             menu.addItem(hideItem)
 
             if ApplicationUninstaller.canUninstallApplication(at: item.url) {
+                menu.addItem(.separator())
+
                 let uninstallItem = NSMenuItem(title: KidoXL10n.string(.uninstallAppEllipsis), action: #selector(handleContextUninstall(_:)), keyEquivalent: "")
                 uninstallItem.target = self
                 uninstallItem.representedObject = item
+                uninstallItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.uninstallAppEllipsis), showsPro: showsProBadges)
                 menu.addItem(uninstallItem)
             }
-
-            menu.addItem(.separator())
-
-            let info = NSMenuItem(title: item.bundleIdentifier ?? item.sourcePath, action: nil, keyEquivalent: "")
-            info.isEnabled = false
-            menu.addItem(info)
         }
 
         return menu

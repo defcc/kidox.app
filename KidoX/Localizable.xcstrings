@@ -2979,19 +2979,19 @@
         }
       }
     },
-    "Restored apps return to the page or folder where they were hidden. Manually added apps restore to the first available page." : {
+    "Hidden apps keep their position in the layout. Restoring an app shows it again on the same page or in the same folder." : {
       "extractionState" : "stale",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "復元したアプリは非表示前のページまたはフォルダへ戻ります。手動追加したアプリは最初の空きページへ戻ります。"
+            "value" : "非表示のアプリはレイアウト内の位置を保持します。復元すると同じページまたは同じフォルダに再表示されます。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "恢复后的 App 会回到隐藏前所在页面或文件夹。手动添加的 App 会恢复到第一个可用页面。"
+            "value" : "隐藏的 App 会保留在布局中的原位置。恢复后会在同一页面或文件夹中重新显示。"
           }
         }
       }

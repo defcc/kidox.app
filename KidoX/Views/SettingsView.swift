@@ -224,7 +224,7 @@ struct DetailView: View {
             case .general:    GeneralPane()
             case .appearance: AppearancePane(state: state)
             case .uninstaller: UninstallerSettingsPane(state: state)
-            case .hiddenApps: HiddenAppsPane()
+            case .hiddenApps: HiddenAppsPane(state: state)
             case .advanced:   AdvancedPane(state: state)
             case .license:    LicensePane()
             case .about:      AboutPane()
@@ -1245,12 +1245,19 @@ private struct UninstallerSettingsPane: View {
 }
 
 private struct HiddenAppsPane: View {
+    var state: SettingsState
+
     @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
+    @AppStorage("ClyAppLicense.status") private var licenseStatus = "Free"
     @State private var pages: [LaunchPage] = []
     @State private var isLoading = false
     @State private var addError: String?
 
     private let database = KidoXDatabase()
+
+    private var isPro: Bool {
+        licenseStatus == "active"
+    }
 
     private var hiddenApps: [LaunchItem] {
         pages
@@ -1271,6 +1278,7 @@ private struct HiddenAppsPane: View {
                         Label(KidoXL10n.ui("Add App...", languageRawValue: appLanguageRaw), systemImage: "plus")
                     }
                     .controlSize(.small)
+                    .help(KidoXL10n.ui(isPro ? "Add an app to hide" : "Adding hidden apps requires Pro", languageRawValue: appLanguageRaw))
 
                     Spacer(minLength: 0)
                 }
@@ -1297,9 +1305,14 @@ private struct HiddenAppsPane: View {
                     }
                 }
             } header: {
-                Text(KidoXL10n.ui("Apps", languageRawValue: appLanguageRaw))
+                HStack(spacing: 4) {
+                    Text(KidoXL10n.ui("Apps", languageRawValue: appLanguageRaw))
+                    if !isPro {
+                        ProBadge()
+                    }
+                }
             } footer: {
-                Text(KidoXL10n.ui("Restored apps return to the page or folder where they were hidden. Manually added apps restore to the first available page.", languageRawValue: appLanguageRaw))
+                Text(KidoXL10n.ui("Hidden apps keep their position in the layout. Restoring an app shows it again on the same page or in the same folder.", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
         }
@@ -1320,6 +1333,11 @@ private struct HiddenAppsPane: View {
     }
 
     private func addApps() {
+        guard isPro else {
+            state.selection = .license
+            return
+        }
+
         NotificationCenter.default.post(
             name: KidoXPanelController.hideLaunchPanelForModalPresentationNotification,
             object: nil
