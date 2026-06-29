@@ -38,9 +38,18 @@
 		A10000000000000000000012 /* KidoXUpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* KidoXUpdaterController.swift */; };
 		A10000000000000000000013 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4F6324A77E4E5A93D01C11 /* Sparkle */; };
 		A10000000000000000000015 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000016 /* LaunchAtLogin */; };
+		A10000000000000000000019 /* ApplicationUninstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* ApplicationUninstaller.swift */; };
+		A1000000000000000000001B /* KidoXLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* KidoXLocalization.swift */; };
+		A1000000000000000000001D /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* Localizable.xcstrings */; };
+		B20000000000000000000011 /* KidoXPrivilegedHelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KidoXPrivilegedHelperProtocol.swift */; };
+		B20000000000000000000012 /* KidoXPrivilegedHelperClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* KidoXPrivilegedHelperClient.swift */; };
+		B20000000000000000000013 /* KidoXPrivilegedHelperProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KidoXPrivilegedHelperProtocol.swift */; };
+		B20000000000000000000014 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* main.swift */; };
 		B9F0364C9AE5896547A90BBF /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80EAC3AC0813C3F15B6CA0D6 /* Cocoa.framework */; };
 		CCB4D327FBE48D51B880EFDB /* KidoXIPC.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */ = {isa = PBXBuildFile; fileRef = D26EF870054B45358116382D /* KidoXMinimal.icns */; };
+		D2B7062A8DBB9E674D9AAE9B /* Poof in Resources */ = {isa = PBXBuildFile; fileRef = D2B7062B8DBB9E674D9AAE9B /* Poof */; };
+		DFE2E0CF2FECCACB00051B70 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFE2E0CE2FECCAC100051B70 /* UninstallerView.swift */; };
 		E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0680A3CD8545019456F5B5BA /* KidoX.icon */; };
 /* End PBXBuildFile section */
 
@@ -51,6 +60,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 41D000000000000000000020;
 			remoteInfo = KidoXDockTile;
+		};
+		B20000000000000000000030 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0C92559564B09FCDFE1B561E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B20000000000000000000020;
+			remoteInfo = KidoXPrivilegedHelper;
 		};
 		F5C516C602B5D1FC1E48132A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -121,13 +137,24 @@
 		9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDatabase.swift; sourceTree = "<group>"; };
 		9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationDirectoryMonitor.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* KidoXUpdaterController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXUpdaterController.swift; sourceTree = "<group>"; };
+		A1000000000000000000001A /* ApplicationUninstaller.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ApplicationUninstaller.swift; sourceTree = "<group>"; };
+		A1000000000000000000001C /* KidoXLocalization.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXLocalization.swift; sourceTree = "<group>"; };
+		A1000000000000000000001E /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		B20000000000000000000001 /* KidoXPrivilegedHelperProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXPrivilegedHelperProtocol.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* KidoXPrivilegedHelperClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXPrivilegedHelperClient.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* main.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000005 /* Launchd.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Launchd.plist; sourceTree = "<group>"; };
+		B20000000000000000000006 /* com.clyapps.KidoX.PrivilegedHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.clyapps.KidoX.PrivilegedHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4F881AF6BD83DB604C679F6 /* main.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClyAppLicenseService.swift; sourceTree = "<group>"; };
 		B7A4E9C21D2F4A31A1B2C3D4 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B7A4E9C41D2F4A31A1B2C3D4 /* SettingsWindowController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		D26EF870054B45358116382D /* KidoXMinimal.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = KidoXMinimal.icns; sourceTree = "<group>"; };
+		D2B7062B8DBB9E674D9AAE9B /* Poof */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Poof; sourceTree = "<group>"; };
 		D62244C9FAF6556BFE100083 /* KidoXDockPinning.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXDockPinning.swift; sourceTree = "<group>"; };
 		DAE85AA7DC3E9BBD736879FB /* LaunchItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LaunchItem.swift; sourceTree = "<group>"; };
+		DFE2E0CE2FECCAC100051B70 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
 		EFD567238E5AC9A0DCC04022 /* KidoXStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXStore.swift; sourceTree = "<group>"; };
 		FB0B2C8BD037AFB34AFD5A43 /* KidoXIPC.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KidoXIPC.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -150,6 +177,13 @@
 				A10000000000000000000011 /* KeyboardShortcuts in Frameworks */,
 				A10000000000000000000013 /* Sparkle in Frameworks */,
 				A10000000000000000000015 /* LaunchAtLogin in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000000000000000000022 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,6 +223,7 @@
 				601FA2917A744135B0042970 /* KidoX.app */,
 				1B29917FF76C91AA3B28D31E /* KidoXIPC.framework */,
 				41D000000000000000000007 /* KidoXDockTile.docktileplugin */,
+				B20000000000000000000006 /* com.clyapps.KidoX.PrivilegedHelper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -196,6 +231,7 @@
 		4B3C115D4C9F95C46E9B1A12 /* KidoX */ = {
 			isa = PBXGroup;
 			children = (
+				A1000000000000000000001E /* Localizable.xcstrings */,
 				B4F881AF6BD83DB604C679F6 /* main.swift */,
 				E534E8A09C53E9201BB1E58E /* App */,
 				0DAF930A751289665F138324 /* Models */,
@@ -213,6 +249,7 @@
 				46ABD40BF52ED86D7AC06A6D /* Products */,
 				C51E7235C1F2FA3993191764 /* Frameworks */,
 				4B3C115D4C9F95C46E9B1A12 /* KidoX */,
+				B20000000000000000000050 /* KidoXPrivilegedHelper */,
 				41D000000000000000000050 /* KidoXDockTile */,
 				55A6ECB574C160D7360EE65A /* KidoXIPC */,
 				D2B706288DBB9E674D9AAE9B /* Resources */,
@@ -234,6 +271,7 @@
 			children = (
 				8F17261BFB7F63389620898F /* DateFormatting.swift */,
 				7D4F6326A77E4E5A93D01C11 /* KidoXAppConfiguration.swift */,
+				A1000000000000000000001C /* KidoXLocalization.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -251,18 +289,32 @@
 			isa = PBXGroup;
 			children = (
 				9EA4D3AE0BC679D2052B0756 /* ApplicationDirectoryMonitor.swift */,
+				A1000000000000000000001A /* ApplicationUninstaller.swift */,
 				20304E500EC07865B67C86C2 /* ApplicationScanner.swift */,
 				B7A4E9C01D2F4A31A1B2C3D4 /* ClyAppLicenseService.swift */,
 				045FC68B14A6D660B0756A4B /* DesktopWallpaperProvider.swift */,
+				B20000000000000000000002 /* KidoXPrivilegedHelperClient.swift */,
+				B20000000000000000000001 /* KidoXPrivilegedHelperProtocol.swift */,
 				9D731161E3CA7CFAA2F074DB /* KidoXDatabase.swift */,
 				A10000000000000000000014 /* KidoXUpdaterController.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
 		};
+		B20000000000000000000050 /* KidoXPrivilegedHelper */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000004 /* Info.plist */,
+				B20000000000000000000005 /* Launchd.plist */,
+				B20000000000000000000003 /* main.swift */,
+			);
+			path = KidoXPrivilegedHelper;
+			sourceTree = "<group>";
+		};
 		BD51A75CA87F55B762F85E74 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DFE2E0CE2FECCAC100051B70 /* UninstallerView.swift */,
 				3452AE295A50BC705810D4B9 /* ContentView.swift */,
 				B7A4E9C21D2F4A31A1B2C3D4 /* SettingsView.swift */,
 			);
@@ -289,6 +341,7 @@
 			isa = PBXGroup;
 			children = (
 				D2B706298DBB9E674D9AAE9B /* Icons */,
+				D2B7062B8DBB9E674D9AAE9B /* Poof */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -344,6 +397,23 @@
 			productReference = 41D000000000000000000007 /* KidoXDockTile.docktileplugin */;
 			productType = "com.apple.product-type.bundle";
 		};
+		B20000000000000000000020 /* KidoXPrivilegedHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B20000000000000000000042 /* Build configuration list for PBXNativeTarget "KidoXPrivilegedHelper" */;
+			buildPhases = (
+				B20000000000000000000021 /* Sources */,
+				B20000000000000000000022 /* Frameworks */,
+				B20000000000000000000023 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KidoXPrivilegedHelper;
+			productName = com.clyapps.KidoX.PrivilegedHelper;
+			productReference = B20000000000000000000006 /* com.clyapps.KidoX.PrivilegedHelper */;
+			productType = "com.apple.product-type.tool";
+		};
 		DD640009D9243144E9F00971 /* KidoXIPC */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13FA8CFFAFE0CB78E2CAFF6D /* Build configuration list for PBXNativeTarget "KidoXIPC" */;
@@ -370,6 +440,7 @@
 				6AB221F259C4B9B4A8FFD23F /* Frameworks */,
 				CE4DC5DBC92AD1683DFFD5E9 /* Resources */,
 				64DB72F5CDCCB314745A8479 /* Copy Menu Bar Icon */,
+				B20000000000000000000024 /* Embed Privileged Helper */,
 				41D000000000000000000030 /* Embed Dock Tile PlugIns */,
 				C8D96C5C1ED9135AB567779E /* Embed Frameworks */,
 			);
@@ -378,6 +449,7 @@
 			dependencies = (
 				0A9B032AC28B6F378BFC7015 /* PBXTargetDependency */,
 				41D000000000000000000011 /* PBXTargetDependency */,
+				B20000000000000000000031 /* PBXTargetDependency */,
 			);
 			name = KidoX;
 			packageProductDependencies = (
@@ -402,6 +474,10 @@
 						DevelopmentTeam = LCR49HJMTK;
 						ProvisioningStyle = Automatic;
 					};
+					B20000000000000000000020 = {
+						DevelopmentTeam = LCR49HJMTK;
+						ProvisioningStyle = Automatic;
+					};
 					DD640009D9243144E9F00971 = {
 						DevelopmentTeam = LCR49HJMTK;
 						ProvisioningStyle = Automatic;
@@ -418,6 +494,8 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				ja,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 4DA8146969C55BAE682CA3A2;
@@ -431,6 +509,7 @@
 			projectRoot = "";
 			targets = (
 				E8558D952FCA0F57B8B50A10 /* KidoX */,
+				B20000000000000000000020 /* KidoXPrivilegedHelper */,
 				41D000000000000000000020 /* KidoXDockTile */,
 				DD640009D9243144E9F00971 /* KidoXIPC */,
 			);
@@ -445,11 +524,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B20000000000000000000023 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CE4DC5DBC92AD1683DFFD5E9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000001D /* Localizable.xcstrings in Resources */,
 				D26EF872054B45358116382D /* KidoXMinimal.icns in Resources */,
+				D2B7062A8DBB9E674D9AAE9B /* Poof in Resources */,
 				E04C43417AB56ACEA3D08FB6 /* KidoX.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -462,6 +550,30 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B20000000000000000000024 /* Embed Privileged Helper */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/com.clyapps.KidoX.PrivilegedHelper",
+			);
+			name = "Embed Privileged Helper";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchServices/com.clyapps.KidoX.PrivilegedHelper",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nhelper_name=\"com.clyapps.KidoX.PrivilegedHelper\"\ndestination=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchServices/$helper_name\"\nmkdir -p \"$(dirname \"$destination\")\"\ncp \"$BUILT_PRODUCTS_DIR/$helper_name\" \"$destination\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		41D000000000000000000070 /* Sources */ = {
@@ -484,6 +596,10 @@
 				A10000000000000000000005 /* LaunchItem.swift in Sources */,
 				A10000000000000000000006 /* LaunchPage.swift in Sources */,
 				A10000000000000000000007 /* ApplicationDirectoryMonitor.swift in Sources */,
+				DFE2E0CF2FECCACB00051B70 /* UninstallerView.swift in Sources */,
+				A10000000000000000000019 /* ApplicationUninstaller.swift in Sources */,
+				B20000000000000000000012 /* KidoXPrivilegedHelperClient.swift in Sources */,
+				B20000000000000000000011 /* KidoXPrivilegedHelperProtocol.swift in Sources */,
 				A10000000000000000000008 /* ApplicationScanner.swift in Sources */,
 				A10000000000000000000009 /* DesktopWallpaperProvider.swift in Sources */,
 				A1000000000000000000000A /* KidoXDatabase.swift in Sources */,
@@ -492,6 +608,7 @@
 				A1000000000000000000000D /* ScreenMetrics.swift in Sources */,
 				A1000000000000000000000E /* DateFormatting.swift in Sources */,
 				7D4F6325A77E4E5A93D01C11 /* KidoXAppConfiguration.swift in Sources */,
+				A1000000000000000000001B /* KidoXLocalization.swift in Sources */,
 				A10000000000000000000012 /* KidoXUpdaterController.swift in Sources */,
 				A1000000000000000000000F /* ContentView.swift in Sources */,
 				A10000000000000000000010 /* SettingsView.swift in Sources */,
@@ -505,6 +622,15 @@
 				40F1ACF7A371B44F2800EEF4 /* KidoXDockPinning.swift in Sources */,
 				24DD8E98C581F2F5E4771AD1 /* KidoXDockIconPreference.swift in Sources */,
 				240AB112F938B65F3CE923EE /* KidoXIPC.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B20000000000000000000021 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000013 /* KidoXPrivilegedHelperProtocol.swift in Sources */,
+				B20000000000000000000014 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -522,6 +648,12 @@
 			name = KidoXDockTile;
 			target = 41D000000000000000000020 /* KidoXDockTile */;
 			targetProxy = 41D000000000000000000010 /* PBXContainerItemProxy */;
+		};
+		B20000000000000000000031 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = KidoXPrivilegedHelper;
+			target = B20000000000000000000020 /* KidoXPrivilegedHelper */;
+			targetProxy = B20000000000000000000030 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -639,7 +771,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = LCR49HJMTK;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -653,7 +785,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX;
 				PRODUCT_NAME = KidoX;
 				SDKROOT = macosx;
@@ -668,7 +800,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 15;
 				DEVELOPMENT_TEAM = LCR49HJMTK;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -682,7 +814,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX;
 				PRODUCT_NAME = KidoX;
 				SDKROOT = macosx;
@@ -752,6 +884,72 @@
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
+		};
+		B20000000000000000000040 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidoXPrivilegedHelper/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-sectcreate",
+					__TEXT,
+					__launchd_plist,
+					KidoXPrivilegedHelper/Launchd.plist,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX.PrivilegedHelper;
+				PRODUCT_NAME = com.clyapps.KidoX.PrivilegedHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		B20000000000000000000041 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LCR49HJMTK;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KidoXPrivilegedHelper/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Security,
+					"-framework",
+					SystemConfiguration,
+					"-sectcreate",
+					__TEXT,
+					__launchd_plist,
+					KidoXPrivilegedHelper/Launchd.plist,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.clyapps.KidoX.PrivilegedHelper;
+				PRODUCT_NAME = com.clyapps.KidoX.PrivilegedHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
 		};
 		DA65B15AFF2C57606C2060AE /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -826,6 +1024,15 @@
 			buildConfigurations = (
 				41D000000000000000000082 /* Release */,
 				41D000000000000000000081 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B20000000000000000000042 /* Build configuration list for PBXNativeTarget "KidoXPrivilegedHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B20000000000000000000041 /* Release */,
+				B20000000000000000000040 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

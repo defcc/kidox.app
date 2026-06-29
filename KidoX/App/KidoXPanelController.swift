@@ -3,6 +3,10 @@ import Carbon
 import QuartzCore
 import SwiftUI
 
+extension Notification.Name {
+    static let kidoXPanelEscapeRequested = Notification.Name("KidoXPanelEscapeRequested")
+}
+
 @MainActor
 final class KidoXPanelController {
     static let showMenuBarStorageKey = "KidoX.showMenuBarInLaunchPanel"
@@ -19,20 +23,23 @@ final class KidoXPanelController {
     private var mouseDownMonitor: Any?
     private var hideWorkItem: DispatchWorkItem?
     private var focusWorkItem: DispatchWorkItem?
+    private var keepsPanelOpenForModalInteraction = false
     nonisolated(unsafe) private var defaultsObserver: NSObjectProtocol?
     nonisolated(unsafe) private var updateCheckObserver: NSObjectProtocol?
     nonisolated(unsafe) private var modalPresentationObserver: NSObjectProtocol?
+    private var observedAppLanguageRaw: String
     private static let scaleAnimationKey = "kidoXScaleAnimation"
 
     init(onOpenSettings: @escaping (SettingsPane?) -> Void = { _ in }) {
         self.onOpenSettings = onOpenSettings
+        self.observedAppLanguageRaw = UserDefaults.standard.string(forKey: KidoXLanguage.storageKey) ?? KidoXLanguage.system.rawValue
         defaultsObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: UserDefaults.standard,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.applyPanelPresentationPreference()
+                self?.handleDefaultsChanged()
             }
         }
 
@@ -141,6 +148,8 @@ final class KidoXPanelController {
 
     func hide() {
         guard let panel, panel.isVisible else { return }
+        keepsPanelOpenForModalInteraction = false
+        resetTransientPresentationState()
         focusWorkItem?.cancel()
         focusWorkItem = nil
         panel.makeFirstResponder(nil)
@@ -159,6 +168,8 @@ final class KidoXPanelController {
     }
 
     private func hideImmediately(shouldHideAppIfNoOtherWindowIsVisible: Bool) {
+        keepsPanelOpenForModalInteraction = false
+        resetTransientPresentationState()
         focusWorkItem?.cancel()
         focusWorkItem = nil
         hideWorkItem?.cancel()
@@ -192,6 +203,19 @@ final class KidoXPanelController {
         Task {
             await store.refreshApplications()
         }
+    }
+
+    private func resetTransientPresentationState() {
+        store.openFolderID = nil
+    }
+
+    private func handleDefaultsChanged() {
+        applyPanelPresentationPreference()
+
+        let languageRaw = UserDefaults.standard.string(forKey: KidoXLanguage.storageKey) ?? KidoXLanguage.system.rawValue
+        guard languageRaw != observedAppLanguageRaw else { return }
+        observedAppLanguageRaw = languageRaw
+        refreshApplications()
     }
 
     private func makePanel(for screen: NSScreen?) -> KidoXPanel {
@@ -242,6 +266,16 @@ final class KidoXPanelController {
             onOpenLicenseSettings: { [weak self] in
                 self?.hideImmediatelyForSettings()
                 self?.onOpenSettings(.license)
+            },
+            onOpenUninstallerSettings: { [weak self] in
+                self?.hideImmediatelyForSettings()
+                self?.onOpenSettings(.uninstaller)
+            },
+            onModalInteractionChanged: { [weak self] isActive in
+                self?.keepsPanelOpenForModalInteraction = isActive
+            },
+            onRestoreFocusAfterModalInteraction: { [weak self] in
+                self?.restoreFocusAfterModalInteraction()
             }
         ))
         foregroundHosting.frame = containerFrame
@@ -355,6 +389,7 @@ final class KidoXPanelController {
         mouseDownMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, let panel = self.panel, panel.isVisible else { return }
+                guard !self.keepsPanelOpenForModalInteraction else { return }
                 self.hide()
             }
         }
@@ -398,6 +433,24 @@ final class KidoXPanelController {
     private func requestSearchFocusIfVisible(_ panel: NSPanel) {
         guard panel.isVisible else { return }
         store.searchFocusRequestID += 1
+    }
+
+    private func restoreFocusAfterModalInteraction() {
+        guard let panel, panel.isVisible else { return }
+
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
+
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        panel.orderFrontRegardless()
+        panel.makeKeyAndOrderFront(nil)
+
+        DispatchQueue.main.async { [weak self, weak panel] in
+            guard let self, let panel, panel.isVisible else { return }
+            panel.makeKeyAndOrderFront(nil)
+            self.requestSearchFocusIfVisible(panel)
+        }
     }
 
     private func prewarmSearchFieldEditor(_ panel: NSPanel) {
@@ -531,6 +584,7 @@ final class KidoXPanelController {
         panel = nil
         foregroundHostingView = nil
         fieldEditorWarmupTextField = nil
+        keepsPanelOpenForModalInteraction = false
         hideWorkItem = nil
         focusWorkItem = nil
 
@@ -573,6 +627,20 @@ final class KidoXPanelController {
 final class KidoXPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 53, !isEditingText {
+            NotificationCenter.default.post(name: .kidoXPanelEscapeRequested, object: self)
+            return
+        }
+
+        super.sendEvent(event)
+    }
+
+    private var isEditingText: Bool {
+        guard let textView = firstResponder as? NSTextView else { return false }
+        return textView.delegate != nil
+    }
 
     // Pre-configure the shared field editor so its first use never flashes the
     // default opaque NSTextView background at the search input. The cell's

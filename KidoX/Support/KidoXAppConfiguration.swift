@@ -1,47 +1,22 @@
 import Foundation
 
 enum KidoXAppConfiguration {
-    static let licenseEndpointURL = url(
-        forInfoDictionaryKey: "KidoXLicenseEndpointURL",
-        fallback: "https://cly-app-license-manager.chengchao1.workers.dev"
-    )
+    static let licenseEndpointURL = url("https://cly-app-license-manager.chengchao1.workers.dev")
 
-    static let websiteURL = url(
-        forInfoDictionaryKey: "KidoXWebsiteURL",
-        fallback: "https://kidox.app"
-    )
+    static let websiteURL = url("https://kidox.app")
 
-    static let helpURL = url(
-        forInfoDictionaryKey: "KidoXHelpURL",
-        fallback: "https://kidox.app/help"
-    )
+    static let helpURL = url("https://kidox.app/help")
 
-    static let supportURL = url(
-        forInfoDictionaryKey: "KidoXSupportURL",
-        fallback: "https://kidox.app/support"
-    )
+    static let supportURL = url("https://kidox.app/support")
 
-    static let purchaseURL = url(
-        forInfoDictionaryKey: "KidoXPurchaseURL",
-        fallback: "https://kidox.app"
-    )
+    static let purchaseURL = url("https://kidox.app/pricing")
 
-    static let appcastURL = url(
-        forInfoDictionaryKey: "SUFeedURL",
-        fallback: "https://kidox.app/appcast.xml"
-    )
+    static let licenseReceiptPublicKey = "BKimVREphpT5adxHB2MD4ye1kaCOcwFltnw2KFgFxpUStXtoZEKMR75Tnvz2r4oKrXnAMgzuGeifFsqIlUxW0Rw="
 
-    static let licenseReceiptPublicKey = string(
-        forInfoDictionaryKey: "KidoXLicenseReceiptPublicKey",
-        fallback: ""
-    )
-
-    private static func url(forInfoDictionaryKey key: String, fallback: String) -> URL {
-        let value = Bundle.main.object(forInfoDictionaryKey: key) as? String
-        return URL(string: value ?? fallback) ?? URL(string: fallback)!
-    }
-
-    private static func string(forInfoDictionaryKey key: String, fallback: String) -> String {
-        Bundle.main.object(forInfoDictionaryKey: key) as? String ?? fallback
+    private static func url(_ value: String) -> URL {
+        guard let url = URL(string: value), url.scheme != nil else {
+            fatalError("Invalid KidoX app configuration URL: \(value)")
+        }
+        return url
     }
 }

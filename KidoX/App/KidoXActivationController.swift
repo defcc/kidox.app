@@ -49,6 +49,10 @@ enum KidoXHotCorner: String, CaseIterable, Identifiable {
         case .bottomRight: "Bottom Right"
         }
     }
+
+    func localizedTitle(languageRawValue: String? = nil) -> String {
+        KidoXL10n.ui(title, languageRawValue: languageRawValue)
+    }
 }
 
 final class KidoXActivationController: @unchecked Sendable {

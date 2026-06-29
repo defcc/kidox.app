@@ -20,6 +20,7 @@ final class SettingsState {
 enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
     case general
     case appearance
+    case uninstaller
     case hiddenApps
     case advanced
     case license
@@ -28,13 +29,18 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
     var id: String { rawValue }
 
     var title: String {
+        title(languageRawValue: nil)
+    }
+
+    func title(languageRawValue: String?) -> String {
         switch self {
-        case .general:    "General"
-        case .appearance: "Appearance"
-        case .hiddenApps: "Hidden Apps"
-        case .advanced:   "Advanced"
-        case .license:    "License"
-        case .about:      "About"
+        case .general:    KidoXL10n.string(.general, languageRawValue: languageRawValue)
+        case .appearance: KidoXL10n.string(.appearance, languageRawValue: languageRawValue)
+        case .uninstaller: KidoXL10n.ui("Uninstaller", languageRawValue: languageRawValue)
+        case .hiddenApps: KidoXL10n.string(.hiddenApps, languageRawValue: languageRawValue)
+        case .advanced:   KidoXL10n.string(.advanced, languageRawValue: languageRawValue)
+        case .license:    KidoXL10n.string(.license, languageRawValue: languageRawValue)
+        case .about:      KidoXL10n.string(.about, languageRawValue: languageRawValue)
         }
     }
 
@@ -42,6 +48,7 @@ enum SettingsPane: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .general:    "gearshape"
         case .appearance: "paintbrush"
+        case .uninstaller: "trash"
         case .hiddenApps: "eye.slash"
         case .advanced:   "shippingbox"
         case .license:    "key"
@@ -57,11 +64,16 @@ struct SidebarView: View {
     var state: SettingsState
 
     @State private var availableVersion = KidoXUpdaterController.shared.availableVersion
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(SettingsPane.allCases) { pane in
-                SidebarItemView(pane: pane, isSelected: state.currentPane == pane) {
+                SidebarItemView(
+                    title: pane.title(languageRawValue: appLanguageRaw),
+                    symbolName: pane.symbolName,
+                    isSelected: state.currentPane == pane
+                ) {
                     state.selection = pane
                 }
             }
@@ -70,7 +82,7 @@ struct SidebarView: View {
 
             if let availableVersion {
                 SidebarActionButton(
-                    title: "Version \(availableVersion) available",
+                    title: KidoXL10n.format(.versionAvailable, availableVersion, languageRawValue: appLanguageRaw),
                     symbolName: "arrow.down.circle.fill",
                     accent: true
                 ) {
@@ -86,7 +98,7 @@ struct SidebarView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "questionmark.circle")
                         .font(.system(size: 14))
-                    Text("Help Center")
+                    Text(KidoXL10n.string(.helpCenter, languageRawValue: appLanguageRaw))
                         .font(.body)
                     Spacer()
                 }
@@ -115,7 +127,8 @@ struct SidebarView: View {
 }
 
 struct SidebarItemView: View {
-    let pane: SettingsPane
+    let title: String
+    let symbolName: String
     let isSelected: Bool
     let action: () -> Void
 
@@ -124,10 +137,10 @@ struct SidebarItemView: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: pane.symbolName)
+                Image(systemName: symbolName)
                     .font(.system(size: 14, weight: .medium))
                     .frame(width: 18)
-                Text(pane.title)
+                Text(title)
                     .font(.body)
                 Spacer()
             }
@@ -194,11 +207,12 @@ private struct SidebarActionButton: View {
 /// The right-hand content area hosted inside the plain NSSplitViewItem.
 struct DetailView: View {
     var state: SettingsState
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Page title mirrors the selected sidebar item
-            Text(state.currentPane.title)
+            Text(state.currentPane.title(languageRawValue: appLanguageRaw))
                 .font(.title2.bold())
                 .padding(.horizontal, 28)
                 .padding(.top, 48)
@@ -209,7 +223,8 @@ struct DetailView: View {
             switch state.currentPane {
             case .general:    GeneralPane()
             case .appearance: AppearancePane(state: state)
-            case .hiddenApps: HiddenAppsPane()
+            case .uninstaller: UninstallerSettingsPane(state: state)
+            case .hiddenApps: HiddenAppsPane(state: state)
             case .advanced:   AdvancedPane(state: state)
             case .license:    LicensePane()
             case .about:      AboutPane()
@@ -223,6 +238,8 @@ struct DetailView: View {
 // MARK: - Panes
 
 private struct GeneralPane: View {
+    @AppStorage(KidoXLanguage.storageKey)
+    private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage(StatusItemController.showMenuBarIconStorageKey)
     private var showMenuBarIcon = true
     @AppStorage(KidoXActivationPreferenceKeys.f4HotKeyEnabled)
@@ -237,18 +254,41 @@ private struct GeneralPane: View {
     var body: some View {
         Form {
             Section {
+                LabeledContent {
+                    Picker("", selection: $appLanguageRaw) {
+                        ForEach(KidoXLanguage.allCases) { language in
+                            Text(language.localizedTitle(languageRawValue: appLanguageRaw)).tag(language.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(KidoXL10n.string(.appLanguage, languageRawValue: appLanguageRaw))
+                        Text(KidoXL10n.string(.appLanguageDescription, languageRawValue: appLanguageRaw))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text(KidoXL10n.string(.language, languageRawValue: appLanguageRaw))
+            }
+            .listRowBackground(Color(nsColor: .controlBackgroundColor))
+
+            Section {
                 VStack(alignment: .leading, spacing: 3) {
-                    LaunchAtLogin.Toggle("Launch at login")
-                    Text("KidoX will launch in the background when system starts")
+                    LaunchAtLogin.Toggle(KidoXL10n.ui("Launch at login", languageRawValue: appLanguageRaw))
+                    Text(KidoXL10n.ui("KidoX will launch in the background when system starts", languageRawValue: appLanguageRaw))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Toggle("Show in menu bar", isOn: $showMenuBarIcon)
+                Toggle(KidoXL10n.ui("Show in menu bar", languageRawValue: appLanguageRaw), isOn: $showMenuBarIcon)
 
                 LabeledContent {
                     HStack(spacing: 8) {
                         if f4HotKeyEnabled && !isAccessibilityAccessGranted {
-                            Button("Grant Access") {
+                            Button(KidoXL10n.ui("Grant Access", languageRawValue: appLanguageRaw)) {
                                 KidoXActivationController.requestAccessibilityAccess()
                                 refreshAccessibilityAccessState()
                             }
@@ -260,7 +300,7 @@ private struct GeneralPane: View {
                     }
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Launch with F4")
+                        Text(KidoXL10n.ui("Launch with F4", languageRawValue: appLanguageRaw))
                         Text(f4HotKeyDescription)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -271,8 +311,8 @@ private struct GeneralPane: View {
                     KeyboardShortcuts.Recorder(for: .showLaunchPanel)
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Keyboard shortcut")
-                        Text("Show KidoX from anywhere.")
+                        Text(KidoXL10n.ui("Keyboard shortcut", languageRawValue: appLanguageRaw))
+                        Text(KidoXL10n.ui("Show KidoX from anywhere.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -281,7 +321,7 @@ private struct GeneralPane: View {
                 LabeledContent {
                     Picker("", selection: $hotCorner) {
                         ForEach(KidoXHotCorner.allCases) { corner in
-                            Text(corner.title).tag(corner.rawValue)
+                            Text(corner.localizedTitle(languageRawValue: appLanguageRaw)).tag(corner.rawValue)
                         }
                     }
                     .labelsHidden()
@@ -289,8 +329,8 @@ private struct GeneralPane: View {
                     .fixedSize()
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Hot Corner")
-                        Text("Move the pointer into a screen corner to show KidoX.")
+                        Text(KidoXL10n.ui("Hot Corner", languageRawValue: appLanguageRaw))
+                        Text(KidoXL10n.ui("Move the pointer into a screen corner to show KidoX.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -300,15 +340,15 @@ private struct GeneralPane: View {
 
             Section {
                 if !isDockIconShown {
-                    LabeledContent("Show Dock Icon") {
-                        Button("Show") {
+                    LabeledContent(KidoXL10n.ui("Show Dock Icon", languageRawValue: appLanguageRaw)) {
+                        Button(KidoXL10n.ui("Show", languageRawValue: appLanguageRaw)) {
                             KidoXDockPinning.pinKidoXAppIfNeeded()
                             refreshDockIconShownState()
                         }
                     }
                 }
 
-                LabeledContent("Dock icon") {
+                LabeledContent(KidoXL10n.ui("Dock icon", languageRawValue: appLanguageRaw)) {
                     HStack(spacing: 8) {
                         ForEach(KidoXDockIcon.allCases) { icon in
                             DockIconPreviewButton(
@@ -326,7 +366,7 @@ private struct GeneralPane: View {
                     KidoXDockIconPreference.apply(icon)
                 }
             } header: {
-                Text("Dock")
+                Text(KidoXL10n.ui("Dock", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor)) // White card background
         }
@@ -345,14 +385,14 @@ private struct GeneralPane: View {
 
     private var f4HotKeyDescription: String {
         if !f4HotKeyEnabled {
-            return "Turn on to open KidoX with the F4 or Launchpad key."
+            return KidoXL10n.ui("Turn on to open KidoX with the F4 or Launchpad key.", languageRawValue: appLanguageRaw)
         }
 
         if isAccessibilityAccessGranted {
-            return "Open KidoX with the F4 or Launchpad key, without changing system keyboard settings."
+            return KidoXL10n.ui("Open KidoX with the F4 or Launchpad key, without changing system keyboard settings.", languageRawValue: appLanguageRaw)
         }
 
-        return "Grant Accessibility to capture the F4 or Launchpad key without changing system keyboard settings."
+        return KidoXL10n.ui("Grant Accessibility to capture the F4 or Launchpad key without changing system keyboard settings.", languageRawValue: appLanguageRaw)
     }
 
     private func refreshAccessibilityAccessState() {
@@ -370,6 +410,8 @@ private struct GeneralPane: View {
 private struct AppearancePane: View {
     var state: SettingsState
 
+    @AppStorage(KidoXLanguage.storageKey)
+    private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage(KidoXBackgroundStyle.styleStorageKey)
     private var backgroundStyleRaw = KidoXBackgroundStyle.wallpaper.rawValue
     @AppStorage(KidoXPanelController.showMenuBarStorageKey)
@@ -477,10 +519,10 @@ private struct AppearancePane: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Style") {
+                LabeledContent(KidoXL10n.ui("Style", languageRawValue: appLanguageRaw)) {
                     Picker("", selection: backgroundStyleBinding) {
                         ForEach(KidoXBackgroundStyle.allCases) { style in
-                            Text(style.title).tag(style)
+                            Text(style.localizedTitle(languageRawValue: appLanguageRaw)).tag(style)
                         }
                     }
                     .pickerStyle(.segmented)
@@ -490,18 +532,21 @@ private struct AppearancePane: View {
 
                 selectedBackgroundControls
             } header: {
-                Text("Background")
+                Text(KidoXL10n.ui("Background", languageRawValue: appLanguageRaw))
             } footer: {
-                Text(backgroundStyle.description)
+                Text(backgroundStyle.localizedDescription(languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
 
             Section {
-                Toggle("Show menu bar", isOn: $showMenuBar)
+                Toggle(KidoXL10n.ui("Show menu bar", languageRawValue: appLanguageRaw), isOn: $showMenuBar)
             } header: {
-                Text("Menu Bar")
+                Text(KidoXL10n.ui("Menu Bar", languageRawValue: appLanguageRaw))
             } footer: {
-                Text(showMenuBar ? "KidoX stays below the menu bar while open." : "KidoX covers the menu bar while open.")
+                Text(KidoXL10n.ui(
+                    showMenuBar ? "KidoX stays below the menu bar while open." : "KidoX covers the menu bar while open.",
+                    languageRawValue: appLanguageRaw
+                ))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
         }
@@ -509,11 +554,11 @@ private struct AppearancePane: View {
         .toggleStyle(.switch)
         .scrollContentBackground(.hidden)
         .background(Color(nsColor: .windowBackgroundColor))
-        .alert("Image Import Failed", isPresented: Binding(
+        .alert(KidoXL10n.ui("Image Import Failed", languageRawValue: appLanguageRaw), isPresented: Binding(
             get: { imageImportError != nil },
             set: { if !$0 { imageImportError = nil } }
         )) {
-            Button("OK", role: .cancel) {
+            Button(KidoXL10n.ui("OK", languageRawValue: appLanguageRaw), role: .cancel) {
                 imageImportError = nil
             }
         } message: {
@@ -554,21 +599,21 @@ private struct AppearancePane: View {
         brightness: Binding<Double>
     ) -> some View {
         Group {
-            LabeledContent("Blur") {
+            LabeledContent(KidoXL10n.ui("Blur", languageRawValue: appLanguageRaw)) {
                 EndpointLabeledSlider(
                     value: blur,
                     range: 0...48,
-                    leadingLabel: "Clear",
-                    trailingLabel: "Blurred"
+                    leadingLabel: KidoXL10n.ui("Clear", languageRawValue: appLanguageRaw),
+                    trailingLabel: KidoXL10n.ui("Blurred", languageRawValue: appLanguageRaw)
                 )
             }
 
-            LabeledContent("Brightness") {
+            LabeledContent(KidoXL10n.ui("Brightness", languageRawValue: appLanguageRaw)) {
                 EndpointLabeledSlider(
                     value: brightness,
                     range: -0.32...0.45,
-                    leadingLabel: "Brighter",
-                    trailingLabel: "Darker"
+                    leadingLabel: KidoXL10n.ui("Brighter", languageRawValue: appLanguageRaw),
+                    trailingLabel: KidoXL10n.ui("Darker", languageRawValue: appLanguageRaw)
                 )
             }
         }
@@ -578,10 +623,13 @@ private struct AppearancePane: View {
         Group {
             LabeledContent {
                 if customImagePath.isEmpty {
-                    Button("Choose Image...") {
+                    Button(KidoXL10n.ui("Choose Image...", languageRawValue: appLanguageRaw)) {
                         chooseCustomImage()
                     }
-                    .help(isPro ? "Choose a custom wallpaper image" : "Custom wallpaper images require Pro")
+                    .help(KidoXL10n.ui(
+                        isPro ? "Choose a custom wallpaper image" : "Custom wallpaper images require Pro",
+                        languageRawValue: appLanguageRaw
+                    ))
                 } else {
                     CustomWallpaperPreview(
                         imagePath: customImagePath,
@@ -595,7 +643,7 @@ private struct AppearancePane: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text("Image")
+                    Text(KidoXL10n.ui("Image", languageRawValue: appLanguageRaw))
                     if !isPro {
                         ProBadge()
                     }
@@ -607,19 +655,19 @@ private struct AppearancePane: View {
     }
 
     private var glassControls: some View {
-        LabeledContent("Strength") {
+        LabeledContent(KidoXL10n.ui("Strength", languageRawValue: appLanguageRaw)) {
             EndpointLabeledSlider(
                 value: $glassStrength,
                 range: 0...1,
-                leadingLabel: "Subtle",
-                trailingLabel: "Strong"
+                leadingLabel: KidoXL10n.ui("Subtle", languageRawValue: appLanguageRaw),
+                trailingLabel: KidoXL10n.ui("Strong", languageRawValue: appLanguageRaw)
             )
         }
     }
 
     private var solidControls: some View {
         Group {
-            LabeledContent("Preset") {
+            LabeledContent(KidoXL10n.ui("Preset", languageRawValue: appLanguageRaw)) {
                 HStack(spacing: 8) {
                     ForEach(KidoXSolidBackgroundPreset.builtInCases) { preset in
                         SolidPresetButton(
@@ -634,7 +682,7 @@ private struct AppearancePane: View {
                 .fixedSize()
             }
 
-            LabeledContent("Custom") {
+            LabeledContent(KidoXL10n.ui("Custom", languageRawValue: appLanguageRaw)) {
                 HStack(spacing: 8) {
                     ZStack {
                         ColorPicker(
@@ -662,7 +710,10 @@ private struct AppearancePane: View {
                         ProBadge()
                     }
                 }
-                .help(isPro ? "Choose a custom solid background color" : "Custom solid background colors require Pro")
+                .help(KidoXL10n.ui(
+                    isPro ? "Choose a custom solid background color" : "Custom solid background colors require Pro",
+                    languageRawValue: appLanguageRaw
+                ))
             }
         }
     }
@@ -705,6 +756,7 @@ private struct CustomWallpaperPreview: View {
     let selectAction: () -> Void
     let deleteAction: () -> Void
 
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @State private var image: NSImage?
     @State private var isHovered = false
 
@@ -725,8 +777,8 @@ private struct CustomWallpaperPreview: View {
                 .buttonStyle(.plain)
                 .opacity(isHovered ? 1 : 0)
                 .allowsHitTesting(isHovered)
-                .accessibilityLabel("Delete image")
-                .help("Delete custom wallpaper image")
+                .accessibilityLabel(KidoXL10n.ui("Delete image", languageRawValue: appLanguageRaw))
+                .help(KidoXL10n.ui("Delete custom wallpaper image", languageRawValue: appLanguageRaw))
                 .offset(x: 7, y: -7)
             }
         }
@@ -739,7 +791,7 @@ private struct CustomWallpaperPreview: View {
         .task(id: imagePath) {
             image = await KidoXCustomWallpaperStore.image(at: imagePath)
         }
-        .help("Move pointer over the image to select another wallpaper")
+        .help(KidoXL10n.ui("Move pointer over the image to select another wallpaper", languageRawValue: appLanguageRaw))
     }
 
     private var previewImage: some View {
@@ -753,7 +805,7 @@ private struct CustomWallpaperPreview: View {
                     .allowsHitTesting(false)
             }
             .overlay {
-                Button("Select") {
+                Button(KidoXL10n.ui("Select", languageRawValue: appLanguageRaw)) {
                     selectAction()
                 }
                 .buttonStyle(.borderedProminent)
@@ -842,6 +894,7 @@ private struct DockIconPreviewButton: View {
     let action: () -> Void
 
     @State private var isHovered = false
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         Button(action: action) {
@@ -868,7 +921,7 @@ private struct DockIconPreviewButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(icon.title) Dock icon")
+        .accessibilityLabel(KidoXL10n.uiFormat("%@ Dock icon", icon.title, languageRawValue: appLanguageRaw))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .opacity(isHovered && !isSelected ? 0.82 : 1)
         .onHover { hovering in
@@ -877,12 +930,334 @@ private struct DockIconPreviewButton: View {
     }
 }
 
+private struct UninstallerSettingsPane: View {
+    var state: SettingsState
+
+    @AppStorage(KidoXLanguage.storageKey)
+    private var appLanguageRaw = KidoXLanguage.system.rawValue
+    @AppStorage("ClyAppLicense.status")
+    private var licenseStatus = "Free"
+
+    @State private var helperVersion: String?
+    @State private var statusMessage: String?
+    @State private var statusMessageIsError = false
+    @State private var isCheckingHelper = false
+    @State private var isInstallingHelper = false
+    @State private var hasFullDiskAccess = Self.detectFullDiskAccess()
+
+    private let helperClient = KidoXPrivilegedHelperClient()
+
+    private var isPro: Bool {
+        licenseStatus == "active"
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: dataAccessSymbol)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(dataAccessColor)
+                            .frame(width: 32)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(dataAccessTitle)
+                                    .font(.headline)
+                                if !isPro { ProBadge() }
+                            }
+
+                            Text(fullDiskAccessDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if isPro, !hasFullDiskAccess {
+                            Button(KidoXL10n.ui("Grant Access", languageRawValue: appLanguageRaw)) {
+                                openFullDiskAccessSettings()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else if !isPro {
+                            Button(KidoXL10n.ui("Purchase Pro", languageRawValue: appLanguageRaw)) {
+                                NSWorkspace.shared.open(KidoXAppConfiguration.purchaseURL)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text(KidoXL10n.ui("Full Disk Access", languageRawValue: appLanguageRaw))
+            }
+            .listRowBackground(Color(nsColor: .controlBackgroundColor))
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Image(systemName: advancedUninstallSymbol)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(advancedUninstallColor)
+                            .frame(width: 32)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(advancedUninstallTitle)
+                                    .font(.headline)
+                                if !isPro { ProBadge() }
+                            }
+
+                            Text(advancedUninstallDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if isInstallingHelper {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+
+                        if isPro, shouldShowHelperAction {
+                            Button(helperActionTitle) {
+                                installHelper()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(isCheckingHelper || isInstallingHelper)
+                        } else if !isPro {
+                            Button(KidoXL10n.ui("Purchase Pro", languageRawValue: appLanguageRaw)) {
+                                NSWorkspace.shared.open(KidoXAppConfiguration.purchaseURL)
+                            }
+                        }
+                    }
+
+                    if let statusMessage {
+                        Text(statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(statusMessageIsError ? .red : .secondary)
+                    }
+
+                    Text(KidoXL10n.ui("Free users can uninstall apps that macOS allows KidoX to move to Trash. Pro users can install the helper to remove root-owned and many Mac App Store apps.", languageRawValue: appLanguageRaw))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text(KidoXL10n.ui("Advanced Uninstall", languageRawValue: appLanguageRaw))
+            }
+            .listRowBackground(Color(nsColor: .controlBackgroundColor))
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            refreshFullDiskAccessStatus()
+            refreshHelperStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshFullDiskAccessStatus()
+        }
+    }
+
+    private var fullDiskAccessDescription: String {
+        if !isPro {
+            return KidoXL10n.ui("Upgrade to Pro to scan and remove app data in protected Library folders.", languageRawValue: appLanguageRaw)
+        }
+        if hasFullDiskAccess {
+            return KidoXL10n.ui("KidoX can access protected Library folders for app data cleanup.", languageRawValue: appLanguageRaw)
+        }
+        return KidoXL10n.ui("Grant Full Disk Access so KidoX can scan and remove app data in protected Library folders such as Containers and Group Containers.", languageRawValue: appLanguageRaw)
+    }
+
+    private var dataAccessSymbol: String {
+        if !isPro { return "lock.shield" }
+        return hasFullDiskAccess ? "checkmark.circle.fill" : "hand.raised.fill"
+    }
+
+    private var dataAccessColor: Color {
+        if !isPro { return .secondary }
+        return hasFullDiskAccess ? .green : .orange
+    }
+
+    private var dataAccessTitle: String {
+        if !isPro {
+            return KidoXL10n.ui("Data cleanup requires Pro", languageRawValue: appLanguageRaw)
+        }
+        return hasFullDiskAccess
+            ? KidoXL10n.ui("Full Disk Access is enabled", languageRawValue: appLanguageRaw)
+            : KidoXL10n.ui("Full Disk Access is not enabled", languageRawValue: appLanguageRaw)
+    }
+
+    private var advancedUninstallSymbol: String {
+        if !isPro { return "lock.shield" }
+        if helperVersion == nil || helperNeedsUpdate { return "shield" }
+        return "checkmark.shield.fill"
+    }
+
+    private var advancedUninstallColor: Color {
+        if !isPro { return .secondary }
+        return helperVersion == nil || helperNeedsUpdate ? .orange : .green
+    }
+
+    private var advancedUninstallTitle: String {
+        if !isPro {
+            return KidoXL10n.ui("Advanced uninstall requires Pro", languageRawValue: appLanguageRaw)
+        }
+        if helperVersion == nil {
+            return KidoXL10n.ui("Advanced uninstall is not enabled", languageRawValue: appLanguageRaw)
+        }
+        if helperNeedsUpdate {
+            return KidoXL10n.ui("Advanced uninstall update available", languageRawValue: appLanguageRaw)
+        }
+        return KidoXL10n.ui("Advanced uninstall is enabled", languageRawValue: appLanguageRaw)
+    }
+
+    private var advancedUninstallDescription: String {
+        if !isPro {
+            return KidoXL10n.ui("Upgrade to Pro to remove apps that require administrator permission.", languageRawValue: appLanguageRaw)
+        }
+        if let helperVersion {
+            if helperNeedsUpdate {
+                return KidoXL10n.uiFormat(
+                    "Helper version %@ is installed. Version %@ is available.",
+                    helperVersion,
+                    KidoXPrivilegedHelper.version,
+                    languageRawValue: appLanguageRaw
+                )
+            }
+            return KidoXL10n.uiFormat("Helper version %@ is installed.", helperVersion, languageRawValue: appLanguageRaw)
+        }
+        return KidoXL10n.ui("Install the helper once to remove root-owned and Mac App Store apps without repeated administrator prompts.", languageRawValue: appLanguageRaw)
+    }
+
+    private var shouldShowHelperAction: Bool {
+        helperVersion == nil || helperNeedsUpdate
+    }
+
+    private var helperActionTitle: String {
+        helperVersion == nil
+            ? KidoXL10n.ui("Install Helper", languageRawValue: appLanguageRaw)
+            : KidoXL10n.ui("Update Helper", languageRawValue: appLanguageRaw)
+    }
+
+    private var helperNeedsUpdate: Bool {
+        guard let helperVersion else { return false }
+        return helperVersion.compare(KidoXPrivilegedHelper.version, options: .numeric) == .orderedAscending
+    }
+
+    private func refreshHelperStatus() {
+        guard !isCheckingHelper else { return }
+        isCheckingHelper = true
+        statusMessage = nil
+        statusMessageIsError = false
+
+        Task {
+            do {
+                let version = try await helperClient.installedHelperVersion()
+                await MainActor.run {
+                    helperVersion = version
+                    statusMessage = nil
+                    statusMessageIsError = false
+                    isCheckingHelper = false
+                }
+            } catch {
+                await MainActor.run {
+                    helperVersion = nil
+                    statusMessage = KidoXL10n.ui("Helper is not installed.", languageRawValue: appLanguageRaw)
+                    statusMessageIsError = false
+                    isCheckingHelper = false
+                }
+            }
+        }
+    }
+
+    private func installHelper() {
+        guard isPro, !isInstallingHelper else { return }
+        isInstallingHelper = true
+        statusMessage = KidoXL10n.ui("Waiting for administrator authorization...", languageRawValue: appLanguageRaw)
+        statusMessageIsError = false
+
+        Task {
+            do {
+                try await Task.detached {
+                    try helperClient.installHelper()
+                }.value
+                let version = try await helperClient.installedHelperVersion()
+                await MainActor.run {
+                    helperVersion = version
+                    statusMessage = nil
+                    statusMessageIsError = false
+                    isInstallingHelper = false
+                }
+            } catch {
+                await MainActor.run {
+                    statusMessage = error.localizedDescription
+                    statusMessageIsError = true
+                    isInstallingHelper = false
+                }
+            }
+        }
+    }
+
+    private func refreshFullDiskAccessStatus() {
+        hasFullDiskAccess = Self.detectFullDiskAccess()
+    }
+
+    private func openFullDiskAccessSettings() {
+        let candidateURLs = [
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"),
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")
+        ]
+
+        for url in candidateURLs.compactMap({ $0 }) {
+            if NSWorkspace.shared.open(url) {
+                return
+            }
+        }
+    }
+
+    private static func detectFullDiskAccess() -> Bool {
+        let fileManager = FileManager.default
+        let libraryURL = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first
+        let probeURLs = [
+            libraryURL?.appendingPathComponent("Mail", isDirectory: true),
+            libraryURL?.appendingPathComponent("Messages", isDirectory: true),
+            libraryURL?.appendingPathComponent("Safari", isDirectory: true)
+        ].compactMap { $0 }
+
+        var testedProtectedLocation = false
+        for url in probeURLs where fileManager.fileExists(atPath: url.path) {
+            testedProtectedLocation = true
+            if (try? fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) != nil {
+                return true
+            }
+        }
+
+        return !testedProtectedLocation
+    }
+}
+
 private struct HiddenAppsPane: View {
+    var state: SettingsState
+
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
+    @AppStorage("ClyAppLicense.status") private var licenseStatus = "Free"
     @State private var pages: [LaunchPage] = []
     @State private var isLoading = false
     @State private var addError: String?
 
     private let database = KidoXDatabase()
+
+    private var isPro: Bool {
+        licenseStatus == "active"
+    }
 
     private var hiddenApps: [LaunchItem] {
         pages
@@ -900,9 +1275,10 @@ private struct HiddenAppsPane: View {
                     Button {
                         addApps()
                     } label: {
-                        Label("Add App...", systemImage: "plus")
+                        Label(KidoXL10n.ui("Add App...", languageRawValue: appLanguageRaw), systemImage: "plus")
                     }
                     .controlSize(.small)
+                    .help(KidoXL10n.ui(isPro ? "Add an app to hide" : "Adding hidden apps requires Pro", languageRawValue: appLanguageRaw))
 
                     Spacer(minLength: 0)
                 }
@@ -918,7 +1294,7 @@ private struct HiddenAppsPane: View {
                         .controlSize(.small)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else if hiddenApps.isEmpty {
-                    Text("No hidden apps.")
+                    Text(KidoXL10n.ui("No hidden apps.", languageRawValue: appLanguageRaw))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
@@ -929,9 +1305,14 @@ private struct HiddenAppsPane: View {
                     }
                 }
             } header: {
-                Text("Apps")
+                HStack(spacing: 4) {
+                    Text(KidoXL10n.ui("Apps", languageRawValue: appLanguageRaw))
+                    if !isPro {
+                        ProBadge()
+                    }
+                }
             } footer: {
-                Text("Restored apps return to the page or folder where they were hidden. Manually added apps restore to the first available page.")
+                Text(KidoXL10n.ui("Hidden apps keep their position in the layout. Restoring an app shows it again on the same page or in the same folder.", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
         }
@@ -952,14 +1333,19 @@ private struct HiddenAppsPane: View {
     }
 
     private func addApps() {
+        guard isPro else {
+            state.selection = .license
+            return
+        }
+
         NotificationCenter.default.post(
             name: KidoXPanelController.hideLaunchPanelForModalPresentationNotification,
             object: nil
         )
 
         let panel = NSOpenPanel()
-        panel.title = "Add Hidden Apps"
-        panel.prompt = "Hide"
+        panel.title = KidoXL10n.ui("Add Hidden Apps", languageRawValue: appLanguageRaw)
+        panel.prompt = KidoXL10n.ui("Hide", languageRawValue: appLanguageRaw)
         panel.allowedContentTypes = [.applicationBundle]
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -1014,6 +1400,8 @@ private struct HiddenAppsPane: View {
                 pages[pageIndex].items[itemIndex].url = selectedItem.url
                 pages[pageIndex].items[itemIndex].bundleIdentifier = selectedItem.bundleIdentifier
                 pages[pageIndex].items[itemIndex].bundleName = selectedItem.bundleName
+                pages[pageIndex].items[itemIndex].localizedDisplayNames = selectedItem.localizedDisplayNames
+                pages[pageIndex].items[itemIndex].applicationCategory = selectedItem.applicationCategory
                 pages[pageIndex].items[itemIndex].version = selectedItem.version
                 pages[pageIndex].items[itemIndex].sourcePath = selectedItem.sourcePath
                 pages[pageIndex].items[itemIndex].isHidden = true
@@ -1085,6 +1473,7 @@ private struct HiddenAppsPane: View {
 private struct HiddenAppRow: View {
     let item: LaunchItem
     let restore: () -> Void
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         HStack(spacing: 10) {
@@ -1104,7 +1493,7 @@ private struct HiddenAppRow: View {
 
             Spacer(minLength: 12)
 
-            Button("Restore", action: restore)
+            Button(KidoXL10n.ui("Restore", languageRawValue: appLanguageRaw), action: restore)
                 .controlSize(.small)
         }
         .padding(.vertical, 3)
@@ -1114,6 +1503,7 @@ private struct HiddenAppRow: View {
 private struct AdvancedPane: View {
     var state: SettingsState
 
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage("ClyAppLicense.status")
     private var licenseStatus = "Free"
     @AppStorage(KidoXActivationPreferenceKeys.debugLoggingEnabled)
@@ -1134,19 +1524,19 @@ private struct AdvancedPane: View {
                     Button {
                         exportBackup()
                     } label: {
-                        Label("Export Backup...", systemImage: "square.and.arrow.up")
+                        Label(KidoXL10n.ui("Export Backup...", languageRawValue: appLanguageRaw), systemImage: "square.and.arrow.up")
                     }
                     .disabled(isWorking)
-                    .help(isPro ? "Export KidoX backup" : "Backup export requires Pro")
+                    .help(KidoXL10n.ui(isPro ? "Export KidoX backup" : "Backup export requires Pro", languageRawValue: appLanguageRaw))
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
-                            Text("Backup File")
+                            Text(KidoXL10n.ui("Backup File", languageRawValue: appLanguageRaw))
                             if !isPro {
                                 ProBadge()
                             }
                         }
-                        Text("Save your current KidoX data to a file.")
+                        Text(KidoXL10n.ui("Save your current KidoX data to a file.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1156,9 +1546,9 @@ private struct AdvancedPane: View {
                     AdvancedStatusLabel(message: exportMessage)
                 }
             } header: {
-                Text("Export")
+                Text(KidoXL10n.ui("Export", languageRawValue: appLanguageRaw))
             } footer: {
-                Text("Includes layout, hidden apps, usage stats, sorting, keyboard shortcut, appearance, Dock icon, and custom image. License and launch-at-login stay on this Mac.")
+                Text(KidoXL10n.ui("Includes layout, hidden apps, usage stats, sorting, keyboard shortcut, appearance, Dock icon, and custom image. License and launch-at-login stay on this Mac.", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
 
@@ -1175,20 +1565,20 @@ private struct AdvancedPane: View {
                         Button {
                             importBackup()
                         } label: {
-                            Label("Import Backup...", systemImage: "square.and.arrow.down")
+                            Label(KidoXL10n.ui("Import Backup...", languageRawValue: appLanguageRaw), systemImage: "square.and.arrow.down")
                         }
                         .disabled(isWorking)
-                        .help(isPro ? "Import KidoX backup" : "Backup import requires Pro")
+                        .help(KidoXL10n.ui(isPro ? "Import KidoX backup" : "Backup import requires Pro", languageRawValue: appLanguageRaw))
                     }
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 4) {
-                            Text("Restore From File")
+                            Text(KidoXL10n.ui("Restore From File", languageRawValue: appLanguageRaw))
                             if !isPro {
                                 ProBadge()
                             }
                         }
-                        Text("Replace this Mac's current KidoX data.")
+                        Text(KidoXL10n.ui("Replace this Mac's current KidoX data.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1198,9 +1588,9 @@ private struct AdvancedPane: View {
                     AdvancedStatusLabel(message: importMessage)
                 }
             } header: {
-                Text("Import")
+                Text(KidoXL10n.ui("Import", languageRawValue: appLanguageRaw))
             } footer: {
-                Text("Import replaces the current layout and settings. Apps that are not installed on this Mac are skipped and shown in the result.")
+                Text(KidoXL10n.ui("Import replaces the current layout and settings. Apps that are not installed on this Mac are skipped and shown in the result.", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
 
@@ -1210,8 +1600,8 @@ private struct AdvancedPane: View {
                         .labelsHidden()
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Debug")
-                        Text("Record app debug logs.")
+                        Text(KidoXL10n.ui("Debug", languageRawValue: appLanguageRaw))
+                        Text(KidoXL10n.ui("Record app debug logs.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1221,12 +1611,12 @@ private struct AdvancedPane: View {
                     Button {
                         exportDebugLog()
                     } label: {
-                        Label("Export Log...", systemImage: "square.and.arrow.up")
+                        Label(KidoXL10n.ui("Export Log...", languageRawValue: appLanguageRaw), systemImage: "square.and.arrow.up")
                     }
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Export Log")
-                        Text("Save recent debug logs to a file.")
+                        Text(KidoXL10n.ui("Export Log", languageRawValue: appLanguageRaw))
+                        Text(KidoXL10n.ui("Save recent debug logs to a file.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1236,9 +1626,9 @@ private struct AdvancedPane: View {
                     AdvancedStatusLabel(message: debugMessage)
                 }
             } header: {
-                Text("Debug")
+                Text(KidoXL10n.ui("Debug", languageRawValue: appLanguageRaw))
             } footer: {
-                Text("Use this only when sharing logs with support. Leave it off for normal use.")
+                Text(KidoXL10n.ui("Use this only when sharing logs with support. Leave it off for normal use.", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
         }
@@ -1259,8 +1649,8 @@ private struct AdvancedPane: View {
         )
 
         let panel = NSSavePanel()
-        panel.title = "Export KidoX Backup"
-        panel.prompt = "Export"
+        panel.title = KidoXL10n.ui("Export KidoX Backup", languageRawValue: appLanguageRaw)
+        panel.prompt = KidoXL10n.ui("Export", languageRawValue: appLanguageRaw)
         panel.nameFieldStringValue = defaultBackupFilename()
         panel.allowedContentTypes = [.kidoXBackup]
         panel.canCreateDirectories = true
@@ -1270,7 +1660,7 @@ private struct AdvancedPane: View {
 
         do {
             try KidoXBackupManager.exportBackup(to: url)
-            exportMessage = AdvancedTransferMessage(text: "Backup exported.", kind: .success)
+            exportMessage = AdvancedTransferMessage(text: KidoXL10n.ui("Backup exported.", languageRawValue: appLanguageRaw), kind: .success)
         } catch {
             exportMessage = AdvancedTransferMessage(text: error.localizedDescription, kind: .failure)
         }
@@ -1288,8 +1678,8 @@ private struct AdvancedPane: View {
         )
 
         let panel = NSOpenPanel()
-        panel.title = "Import KidoX Backup"
-        panel.prompt = "Import"
+        panel.title = KidoXL10n.ui("Import KidoX Backup", languageRawValue: appLanguageRaw)
+        panel.prompt = KidoXL10n.ui("Import", languageRawValue: appLanguageRaw)
         panel.allowedContentTypes = [.kidoXBackup, .json]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -1316,10 +1706,10 @@ private struct AdvancedPane: View {
     private func confirmImport() -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Import KidoX Backup?"
-        alert.informativeText = "This replaces the current layout and settings. Apps that are not installed on this Mac will be skipped and reported after import."
-        alert.addButton(withTitle: "Import")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = KidoXL10n.ui("Import KidoX Backup?", languageRawValue: appLanguageRaw)
+        alert.informativeText = KidoXL10n.ui("This replaces the current layout and settings. Apps that are not installed on this Mac will be skipped and reported after import.", languageRawValue: appLanguageRaw)
+        alert.addButton(withTitle: KidoXL10n.ui("Import", languageRawValue: appLanguageRaw))
+        alert.addButton(withTitle: KidoXL10n.string(.cancel, languageRawValue: appLanguageRaw))
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -1336,8 +1726,8 @@ private struct AdvancedPane: View {
         )
 
         let panel = NSSavePanel()
-        panel.title = "Export KidoX Log"
-        panel.prompt = "Export"
+        panel.title = KidoXL10n.ui("Export KidoX Log", languageRawValue: appLanguageRaw)
+        panel.prompt = KidoXL10n.ui("Export", languageRawValue: appLanguageRaw)
         panel.nameFieldStringValue = defaultLogFilename()
         panel.allowedContentTypes = [UTType(filenameExtension: "log") ?? .plainText]
         panel.canCreateDirectories = true
@@ -1347,7 +1737,7 @@ private struct AdvancedPane: View {
 
         do {
             try KidoXLogExporter.exportAppLog(to: url, debugLoggingEnabled: debugLoggingEnabled)
-            debugMessage = AdvancedTransferMessage(text: "Log exported.", kind: .success)
+            debugMessage = AdvancedTransferMessage(text: KidoXL10n.ui("Log exported.", languageRawValue: appLanguageRaw), kind: .success)
         } catch {
             debugMessage = AdvancedTransferMessage(text: error.localizedDescription, kind: .failure)
         }
@@ -1432,6 +1822,8 @@ private struct AdvancedStatusLabel: View {
 }
 
 private struct AboutPane: View {
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
+
     var body: some View {
         VStack(spacing: 24) {
             VStack(spacing: 12) {
@@ -1444,22 +1836,22 @@ private struct AboutPane: View {
                     Text(appName)
                         .font(.title2.weight(.semibold))
 
-                    Text("Version \(appVersion) (\(buildNumber))")
+                    Text(KidoXL10n.uiFormat("Version %@ (%@)", appVersion, buildNumber, languageRawValue: appLanguageRaw))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
             }
 
             HStack(spacing: 10) {
-                Button("Check for Update") {
+                Button(KidoXL10n.ui("Check for Update", languageRawValue: appLanguageRaw)) {
                     KidoXUpdaterController.shared.checkForUpdates(orderOutSettingsWindow: true)
                 }
 
-                Button("Support") {
+                Button(KidoXL10n.ui("Support", languageRawValue: appLanguageRaw)) {
                     NSWorkspace.shared.open(KidoXAppConfiguration.supportURL)
                 }
 
-                Button("Website") {
+                Button(KidoXL10n.ui("Website", languageRawValue: appLanguageRaw)) {
                     NSWorkspace.shared.open(KidoXAppConfiguration.websiteURL)
                 }
             }
@@ -1512,6 +1904,7 @@ private extension KidoXDockIcon {
 }
 
 private struct LicensePane: View {
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage("ClyAppLicense.status")        private var licenseStatus = "Free"
     @AppStorage("ClyAppLicense.plan")          private var licensePlan = "Free"
     @AppStorage("ClyAppLicense.activationID")  private var activationID = ""
@@ -1556,11 +1949,11 @@ private struct LicensePane: View {
                             .frame(width: 260)
                             .onSubmit { Task { await activate() } }
                     } label: {
-                        Text("License Key")
+                        Text(KidoXL10n.ui("License Key", languageRawValue: appLanguageRaw))
                     }
 
                     HStack(spacing: 8) {
-                        Button("Purchase License") {
+                        Button(KidoXL10n.ui("Purchase License", languageRawValue: appLanguageRaw)) {
                             openPurchaseLicense()
                         }
 
@@ -1571,7 +1964,7 @@ private struct LicensePane: View {
                         } label: {
                             Group {
                                 if isActivating { ProgressView().controlSize(.small) }
-                                else { Text("Activate") }
+                                else { Text(KidoXL10n.ui("Activate", languageRawValue: appLanguageRaw)) }
                             }
                             .frame(minWidth: 64)
                         }
@@ -1585,7 +1978,7 @@ private struct LicensePane: View {
                         ActivationStatusLabel(message: msg)
                     }
                 } header: {
-                    Text("Activation")
+                    Text(KidoXL10n.ui("Activation", languageRawValue: appLanguageRaw))
                 }
                 .listRowBackground(Color(nsColor: .controlBackgroundColor))
             }
@@ -1593,32 +1986,38 @@ private struct LicensePane: View {
             Section {
                 ProFeatureRow(
                     symbol: "arrow.up.arrow.down",
-                    title: "Advanced sorting",
-                    subtitle: "Recently used, most used, recently added, and name-based ordering.",
+                    title: KidoXL10n.ui("Advanced sorting", languageRawValue: appLanguageRaw),
+                    subtitle: KidoXL10n.ui("Recently used, most used, recently added, and name-based ordering.", languageRawValue: appLanguageRaw),
                     showsPro: !isPro
                 )
                 ProFeatureRow(
                     symbol: "eye.slash",
-                    title: "Hide apps",
-                    subtitle: "Keep selected apps out of the launch panel without deleting layout data.",
+                    title: KidoXL10n.ui("Hide apps", languageRawValue: appLanguageRaw),
+                    subtitle: KidoXL10n.ui("Keep selected apps out of the launch panel without deleting layout data.", languageRawValue: appLanguageRaw),
                     showsPro: !isPro
                 )
                 ProFeatureRow(
                     symbol: "paintbrush.pointed",
-                    title: "Advanced appearance",
+                    title: KidoXL10n.ui("Advanced appearance", languageRawValue: appLanguageRaw),
                     subtitle: isPro
-                        ? "Solid colors, custom colors, and custom image backgrounds."
-                        : "Unlock solid colors, custom colors, and custom image backgrounds.",
+                        ? KidoXL10n.ui("Solid colors, custom colors, and custom image backgrounds.", languageRawValue: appLanguageRaw)
+                        : KidoXL10n.ui("Unlock solid colors, custom colors, and custom image backgrounds.", languageRawValue: appLanguageRaw),
+                    showsPro: !isPro
+                )
+                ProFeatureRow(
+                    symbol: "trash",
+                    title: KidoXL10n.ui("Uninstaller", languageRawValue: appLanguageRaw),
+                    subtitle: KidoXL10n.ui("Remove app data and apps that require administrator permission.", languageRawValue: appLanguageRaw),
                     showsPro: !isPro
                 )
                 ProFeatureRow(
                     symbol: "shippingbox",
-                    title: "Backup and restore",
-                    subtitle: "Move your layout and settings between Macs.",
+                    title: KidoXL10n.ui("Backup and restore", languageRawValue: appLanguageRaw),
+                    subtitle: KidoXL10n.ui("Move your layout and settings between Macs.", languageRawValue: appLanguageRaw),
                     showsPro: !isPro
                 )
             } header: {
-                Text(isPro ? "Included With Your License" : "Included With Pro")
+                Text(KidoXL10n.ui(isPro ? "Included With Your License" : "Included With Pro", languageRawValue: appLanguageRaw))
             }
             .listRowBackground(Color(nsColor: .controlBackgroundColor))
         }
@@ -1631,31 +2030,38 @@ private struct LicensePane: View {
     private var trimmedKey: String { licenseKey.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     private var planTitle: String {
-        if isTrial { return "KidoX Pro Trial" }
-        return isPro ? "KidoX \(licensePlan.capitalized)" : "KidoX Free"
+        if isTrial {
+            return KidoXL10n.ui("KidoX Pro Trial", languageRawValue: appLanguageRaw)
+        }
+        if isPro, licensePlan.caseInsensitiveCompare("pro") == .orderedSame {
+            return KidoXL10n.ui("KidoX Pro", languageRawValue: appLanguageRaw)
+        }
+        return isPro ? "KidoX \(licensePlan.capitalized)" : KidoXL10n.ui("KidoX Free", languageRawValue: appLanguageRaw)
     }
 
     private var statusText: String {
         if isTrial {
             return trialEndText
         }
-        if activationID.isEmpty { return "No active license on this Mac." }
-        if !storedLicenseKey.isEmpty { return "Activated with license \(storedLicenseKey)." }
-        if licensePrefix.isEmpty { return "Activated on this Mac." }
-        return "Activated with license \(licensePrefix)…"
+        if activationID.isEmpty { return KidoXL10n.ui("No active license on this Mac.", languageRawValue: appLanguageRaw) }
+        if !storedLicenseKey.isEmpty {
+            return KidoXL10n.uiFormat("Activated with license %@.", storedLicenseKey, languageRawValue: appLanguageRaw)
+        }
+        if licensePrefix.isEmpty { return KidoXL10n.ui("Activated on this Mac.", languageRawValue: appLanguageRaw) }
+        return KidoXL10n.uiFormat("Activated with license %@...", licensePrefix, languageRawValue: appLanguageRaw)
     }
 
     private var trialEndText: String {
         guard let endDate = Self.iso8601Formatter.date(from: trialEndsAt) else {
-            return "Your 7-day Pro trial is active."
+            return KidoXL10n.ui("Your 7-day Pro trial is active.", languageRawValue: appLanguageRaw)
         }
 
         if endDate <= Date() {
-            return "Your Pro trial has ended."
+            return KidoXL10n.ui("Your Pro trial has ended.", languageRawValue: appLanguageRaw)
         }
 
         let formatted = DateFormatter.localizedString(from: endDate, dateStyle: .medium, timeStyle: .short)
-        return "Your Pro trial ends \(formatted)."
+        return KidoXL10n.uiFormat("Your Pro trial ends %@.", formatted, languageRawValue: appLanguageRaw)
     }
 
     @MainActor private func activate() async {
@@ -1670,7 +2076,7 @@ private struct LicensePane: View {
             entitlementType = "license"; trialEndsAt = ""
             storedLicenseKey = key
             licenseKey = ""
-            activationMessage = ActivationMessage(text: "License activated for \(r.bundleID).", kind: .success)
+            activationMessage = ActivationMessage(text: KidoXL10n.uiFormat("License activated for %@.", r.bundleID, languageRawValue: appLanguageRaw), kind: .success)
         } catch {
             activationMessage = ActivationMessage(text: error.localizedDescription, kind: .failure)
         }
@@ -1684,7 +2090,7 @@ private struct LicensePane: View {
 
         do {
             try await ClyAppLicenseService.shared.deactivateStoredLicense()
-            activationMessage = ActivationMessage(text: "License deactivated on this Mac.", kind: .success)
+            activationMessage = ActivationMessage(text: KidoXL10n.ui("License deactivated on this Mac.", languageRawValue: appLanguageRaw), kind: .success)
         } catch {
             activationMessage = ActivationMessage(text: error.localizedDescription, kind: .failure)
         }
@@ -1730,6 +2136,7 @@ private struct LicenseStatusCard: View {
     let isDeactivating: Bool
     let purchaseAction: () -> Void
     let deactivateAction: () -> Void
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1764,13 +2171,13 @@ private struct LicenseStatusCard: View {
                 Divider()
 
                 HStack(spacing: 8) {
-                    Button("Purchase License", action: purchaseAction)
+                    Button(KidoXL10n.ui("Purchase License", languageRawValue: appLanguageRaw), action: purchaseAction)
 
                     Spacer(minLength: 0)
 
                     if showsDeactivate {
                         Button(role: .destructive, action: deactivateAction) {
-                            Text(isDeactivating ? "Deactivating" : "Deactivate This Mac")
+                            Text(KidoXL10n.ui(isDeactivating ? "Deactivating" : "Deactivate This Mac", languageRawValue: appLanguageRaw))
                         }
                         .disabled(isDeactivating)
                     }
@@ -1789,6 +2196,7 @@ private struct LicenseStatusCard: View {
 private struct LicensePlanBadge: View {
     let isPro: Bool
     let isTrial: Bool
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
 
     var body: some View {
         Text(badgeText)
@@ -1803,8 +2211,10 @@ private struct LicensePlanBadge: View {
     }
 
     private var badgeText: String {
-        if isTrial { return "Trial" }
-        return isPro ? "Active" : "Free"
+        if isTrial { return KidoXL10n.ui("Trial", languageRawValue: appLanguageRaw) }
+        return isPro
+            ? KidoXL10n.ui("Active", languageRawValue: appLanguageRaw)
+            : KidoXL10n.ui("Free", languageRawValue: appLanguageRaw)
     }
 
     private var badgeColor: Color {
@@ -2220,6 +2630,8 @@ private enum KidoXBackupManager {
         item.url = localItem.url
         item.bundleIdentifier = localItem.bundleIdentifier
         item.bundleName = localItem.bundleName
+        item.localizedDisplayNames = localItem.localizedDisplayNames
+        item.applicationCategory = localItem.applicationCategory
         item.version = localItem.version
         item.sourcePath = localItem.sourcePath
         return item

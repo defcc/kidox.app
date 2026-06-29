@@ -105,7 +105,7 @@ final class StatusItemController: NSObject {
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
 
-        let settingsItem = makeMenuItem(title: "Settings", symbolName: "gearshape", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = makeMenuItem(title: KidoXL10n.ui("Settings"), symbolName: "gearshape", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
         menu.addItem(.separator())
@@ -114,11 +114,11 @@ final class StatusItemController: NSObject {
         versionItem.isEnabled = false
         menu.addItem(versionItem)
 
-        let updatesItem = makeMenuItem(title: "Check for Updates...", symbolName: "arrow.down.circle", action: #selector(checkForUpdates))
+        let updatesItem = makeMenuItem(title: KidoXL10n.ui("Check for Updates..."), symbolName: "arrow.down.circle", action: #selector(checkForUpdates))
         updatesItem.target = self
         menu.addItem(updatesItem)
 
-        let helpItem = makeMenuItem(title: "Help", symbolName: "questionmark.circle", action: #selector(openHelp))
+        let helpItem = makeMenuItem(title: KidoXL10n.ui("Help"), symbolName: "questionmark.circle", action: #selector(openHelp))
         helpItem.target = self
         menu.addItem(helpItem)
         menu.addItem(.separator())
@@ -126,26 +126,26 @@ final class StatusItemController: NSObject {
 
 
         let purchaseItem = makeMenuItem(
-            title: isPro ? "Purchase More License" : "Purchase Pro",
+            title: KidoXL10n.ui(isPaidLicense ? "Purchase More License" : "Purchase Pro"),
             symbolName: "cart",
             action: #selector(purchasePro)
         )
         purchaseItem.target = self
         menu.addItem(purchaseItem)
 
-        if isPro {
-            let licenseActivatedItem = makeMenuItem(title: "License Activated", symbolName: "checkmark.seal", action: nil)
+        if isPaidLicense {
+            let licenseActivatedItem = makeMenuItem(title: KidoXL10n.ui("License Activated"), symbolName: "checkmark.seal", action: nil)
             licenseActivatedItem.isEnabled = false
             menu.addItem(licenseActivatedItem)
         } else {
-            let activateLicenseItem = makeMenuItem(title: "Activate License", symbolName: "key", action: #selector(activateLicense))
+            let activateLicenseItem = makeMenuItem(title: KidoXL10n.ui("Activate License"), symbolName: "key", action: #selector(activateLicense))
             activateLicenseItem.target = self
             menu.addItem(activateLicenseItem)
         }
 
         menu.addItem(.separator())
 
-        let quitItem = makeMenuItem(title: "Quit", symbolName: "power", action: #selector(quitKidoX), keyEquivalent: "q")
+        let quitItem = makeMenuItem(title: KidoXL10n.ui("Quit"), symbolName: "power", action: #selector(quitKidoX), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -172,13 +172,17 @@ final class StatusItemController: NSObject {
         let build = infoDictionary?["CFBundleVersion"] as? String
 
         if let build, !build.isEmpty {
-            return "KidoX Version \(version) (\(build))"
+            return KidoXL10n.uiFormat("KidoX Version %@ (%@)", version, build)
         }
-        return "KidoX Version \(version)"
+        return KidoXL10n.uiFormat("KidoX Version %@", version)
     }
 
     private var isPro: Bool {
         UserDefaults.standard.string(forKey: "ClyAppLicense.status") == "active"
+    }
+
+    private var isPaidLicense: Bool {
+        isPro && UserDefaults.standard.string(forKey: "ClyAppLicense.entitlementType") != "trial"
     }
 
     @objc private func showAbout() {

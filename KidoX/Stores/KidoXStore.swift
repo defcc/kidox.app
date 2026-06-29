@@ -32,6 +32,16 @@ enum KidoXLaunchSort: String, CaseIterable, Identifiable {
     }
 }
 
+private struct VisibleItemsCacheKey: Hashable {
+    let sort: KidoXLaunchSort
+    let query: String
+}
+
+private struct InitialLayoutGroup {
+    var root: LaunchItem
+    var children: [LaunchItem] = []
+}
+
 enum IconCache {
     private static let diskCacheDirectory: URL = {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -174,6 +184,11 @@ enum IconCache {
 @Observable
 @MainActor
 final class KidoXStore {
+    struct UninstallOutcome {
+        let uninstallResult: ApplicationUninstallResult
+        let pageMutationResult: PageMutationResult
+    }
+
     struct PageMutationResult {
         static let none = PageMutationResult()
 
@@ -188,7 +203,11 @@ final class KidoXStore {
         }
     }
 
-    var pages: [LaunchPage] = []
+    var pages: [LaunchPage] = [] {
+        didSet {
+            visibleItemsCache.removeAll()
+        }
+    }
     var searchQuery = ""
     var searchFocusRequestID = 0
     var selectedItemID: LaunchItem.ID?
@@ -200,12 +219,14 @@ final class KidoXStore {
 
     private let scanner = ApplicationScanner()
     private let database = KidoXDatabase()
+    private let uninstaller = ApplicationUninstaller()
     private var applicationDirectoryMonitor: ApplicationDirectoryMonitor?
     private var didLoadPersistedApplications = false
     private var isRefreshingApplications = false
     private var initialApplicationRefreshTask: Task<Void, Never>?
     private var pendingApplicationRefreshTask: Task<Void, Never>?
     private var presentationPreparationTask: Task<Void, Never>?
+    @ObservationIgnored private var visibleItemsCache: [VisibleItemsCacheKey: [LaunchItem]] = [:]
     @ObservationIgnored nonisolated(unsafe) private var externalPagesObserver: NSObjectProtocol?
 
     init() {
@@ -231,17 +252,13 @@ final class KidoXStore {
     }
 
     var visibleItems: [LaunchItem] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !query.isEmpty else {
             return orderedPages.flatMap { $0.rootItems }
         }
 
-        return orderedPages.flatMap { page in
-            page.items
-                .filter { !$0.isHidden && $0.kind != .folder && $0.searchText.contains(query) }
-                .sorted { $0.sortIndex < $1.sortIndex }
-        }
+        return cachedSortedVisibleItems(sort: .default, query: query)
     }
 
     var appCountText: String {
@@ -281,26 +298,40 @@ final class KidoXStore {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard sort == .default else {
-            return sortedVisibleItems(sort: sort, query: query).chunked(into: boundedPageSize)
+            return cachedSortedVisibleItems(sort: sort, query: query).chunked(into: boundedPageSize)
         }
 
         guard query.isEmpty else {
-            return sortedVisibleItems(sort: .default, query: query).chunked(into: boundedPageSize)
+            return cachedSortedVisibleItems(sort: .default, query: query).chunked(into: boundedPageSize)
         }
 
         return orderedPages.map(\.rootItems)
     }
 
+    private func cachedSortedVisibleItems(sort: KidoXLaunchSort, query: String) -> [LaunchItem] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let key = VisibleItemsCacheKey(sort: sort, query: normalizedQuery)
+        if let cached = visibleItemsCache[key] {
+            return cached
+        }
+
+        let items = sortedVisibleItems(sort: sort, query: normalizedQuery)
+        visibleItemsCache[key] = items
+        return items
+    }
+
     private func sortedVisibleItems(sort: KidoXLaunchSort, query: String) -> [LaunchItem] {
-        let normalizedQuery = query.localizedLowercase
-        let items = orderedPages.flatMap { page in
-            page.items
-                .filter { item in
-                    !item.isHidden
-                        && item.kind != .folder
-                        && (normalizedQuery.isEmpty || item.searchText.contains(normalizedQuery))
-                }
-                .sorted { $0.sortIndex < $1.sortIndex }
+        let items: [LaunchItem]
+        if query.isEmpty {
+            items = orderedPages.flatMap { page in
+                page.items
+                    .filter { !$0.isHidden && $0.kind != .folder }
+                    .sorted { $0.sortIndex < $1.sortIndex }
+            }
+        } else {
+            items = searchMatches(for: query)
+                .sorted(by: defaultSearchResultCompare)
+                .map(\.item)
         }
 
         switch sort {
@@ -336,6 +367,32 @@ final class KidoXStore {
 
     private func localizedNameCompare(_ lhs: LaunchItem, _ rhs: LaunchItem) -> ComparisonResult {
         lhs.effectiveDisplayName.localizedStandardCompare(rhs.effectiveDisplayName)
+    }
+
+    private func searchMatches(for query: String) -> [(item: LaunchItem, match: LaunchItemSearchMatch)] {
+        guard let parsedQuery = LaunchItemSearchQuery(query) else { return [] }
+
+        return orderedPages.flatMap { page in
+            page.items.compactMap { item in
+                guard !item.isHidden, item.kind != .folder, let match = item.searchMatch(for: parsedQuery) else {
+                    return nil
+                }
+                return (item, match)
+            }
+        }
+    }
+
+    private func defaultSearchResultCompare(
+        _ lhs: (item: LaunchItem, match: LaunchItemSearchMatch),
+        _ rhs: (item: LaunchItem, match: LaunchItemSearchMatch)
+    ) -> Bool {
+        if lhs.match != rhs.match {
+            return lhs.match < rhs.match
+        }
+        if lhs.item.sortIndex != rhs.item.sortIndex {
+            return lhs.item.sortIndex < rhs.item.sortIndex
+        }
+        return localizedNameCompare(lhs.item, rhs.item) == .orderedAscending
     }
 
     func children(of folderID: UUID) -> [LaunchItem] {
@@ -432,6 +489,39 @@ final class KidoXStore {
         guard !pages[location.pageIndex].items[location.itemIndex].isHidden else { return }
         pages[location.pageIndex].items[location.itemIndex].isHidden = true
         database.savePages(pages)
+    }
+
+    @MainActor
+    func makeUninstallPlan(for item: LaunchItem) async throws -> ApplicationUninstallPlan {
+        try await uninstaller.makePlan(for: item)
+    }
+
+    @MainActor
+    func uninstallApplication(_ item: LaunchItem, plan: ApplicationUninstallPlan) async throws -> UninstallOutcome {
+        let uninstallResult = try await uninstaller.uninstall(plan)
+        let pageMutationResult = removeApplicationRecord(matching: item)
+        database.savePages(pages)
+        return UninstallOutcome(
+            uninstallResult: uninstallResult,
+            pageMutationResult: pageMutationResult
+        )
+    }
+
+    @MainActor
+    func uninstallApplicationKeepingRecord(_ item: LaunchItem, plan: ApplicationUninstallPlan) async throws -> ApplicationUninstallResult {
+        try await uninstaller.uninstall(plan)
+    }
+
+    @MainActor
+    func removeUninstalledApplicationRecord(_ item: LaunchItem) -> PageMutationResult {
+        let pageMutationResult = removeApplicationRecord(matching: item)
+        database.savePages(pages)
+        return pageMutationResult
+    }
+
+    @MainActor
+    func retryFailedUninstallDataRemovals(from result: ApplicationUninstallResult) async -> ApplicationUninstallResult {
+        await uninstaller.retryFailedDataRemovals(from: result)
     }
 
     // MARK: - Reorder / Folder mutations
@@ -579,7 +669,7 @@ final class KidoXStore {
 
         let folderID = UUID()
         let folderURL = URL(string: "kidox://folder/\(folderID.uuidString)") ?? aItem.url
-        let folderName = autoFolderName(for: aItem, bItem)
+        let folderName = autoFolderName(for: aItem, bItem, on: pageIndex)
 
         let folder = LaunchItem(
             id: folderID,
@@ -696,7 +786,7 @@ final class KidoXStore {
         let folder = LaunchItem(
             id: folderID,
             kind: .folder,
-            displayName: autoFolderName(for: refreshedTarget, movingItem),
+            displayName: autoFolderName(for: refreshedTarget, movingItem, on: targetPageIndex),
             subtitle: "",
             url: folderURL,
             sourcePath: "",
@@ -957,6 +1047,53 @@ final class KidoXStore {
         applyOrder(root, in: pageIndex)
     }
 
+    private func removeApplicationRecord(matching item: LaunchItem) -> PageMutationResult {
+        let key = stableKey(for: item)
+        var result = PageMutationResult()
+
+        for pageIndex in pages.indices {
+            pages[pageIndex].items.removeAll {
+                $0.kind == .application && stableKey(for: $0) == key
+            }
+            removeEmptyFolders(in: pageIndex)
+            compactVisibleSiblingOrder(in: pageIndex)
+        }
+
+        let emptyPageIDs = pages
+            .filter(\.items.isEmpty)
+            .sorted { $0.sortIndex < $1.sortIndex }
+            .map(\.id)
+
+        for pageID in emptyPageIDs {
+            result.merge(removePage(id: pageID))
+        }
+
+        compactPageOrder(&pages)
+        return result
+    }
+
+    private func removeEmptyFolders(in pageIndex: Int) {
+        let childParentIDs = Set(pages[pageIndex].items.compactMap(\.parentID))
+        pages[pageIndex].items.removeAll {
+            $0.kind == .folder && !childParentIDs.contains($0.id)
+        }
+    }
+
+    private func compactVisibleSiblingOrder(in pageIndex: Int) {
+        let parentIDs = Set(pages[pageIndex].items.map(\.parentID))
+        for parentID in parentIDs {
+            let siblings = pages[pageIndex].items
+                .filter { $0.parentID == parentID && !$0.isHidden }
+                .sorted { $0.sortIndex < $1.sortIndex }
+
+            for (sortIndex, item) in siblings.enumerated() {
+                if let itemIndex = pages[pageIndex].items.firstIndex(where: { $0.id == item.id }) {
+                    pages[pageIndex].items[itemIndex].sortIndex = sortIndex
+                }
+            }
+        }
+    }
+
     private func compactRootOrder(in pageIndex: Int, pages: inout [LaunchPage]) {
         let root = pages[pageIndex].rootItems
         for (index, item) in root.enumerated() {
@@ -974,13 +1111,79 @@ final class KidoXStore {
         }
     }
 
-    private func autoFolderName(for a: LaunchItem, _ b: LaunchItem) -> String {
-        let trimmedA = a.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedB = b.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedA.isEmpty && trimmedA == trimmedB { return trimmedA }
-        if !trimmedA.isEmpty { return trimmedA }
-        if !trimmedB.isEmpty { return trimmedB }
-        return "Folder"
+    private func autoFolderName(for a: LaunchItem, _ b: LaunchItem, on pageIndex: Int) -> String {
+        if let categoryName = sharedApplicationCategoryName(for: a, b) {
+            return nextFolderName(basedOn: categoryName, on: pageIndex)
+        }
+        return nextFolderName(basedOn: "Folder", on: pageIndex)
+    }
+
+    private func sharedApplicationCategoryName(for a: LaunchItem, _ b: LaunchItem) -> String? {
+        guard
+            let categoryA = normalizedApplicationCategory(a.applicationCategory),
+            let categoryB = normalizedApplicationCategory(b.applicationCategory),
+            categoryA == categoryB
+        else { return nil }
+
+        return applicationCategoryDisplayName(categoryA)
+    }
+
+    private func normalizedApplicationCategory(_ category: String?) -> String? {
+        let trimmed = category?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.lowercased()
+    }
+
+    private func applicationCategoryDisplayName(_ category: String) -> String {
+        switch category {
+        case "public.app-category.business": "Business"
+        case "public.app-category.developer-tools": "Developer Tools"
+        case "public.app-category.education": "Education"
+        case "public.app-category.entertainment": "Entertainment"
+        case "public.app-category.finance": "Finance"
+        case "public.app-category.games": "Games"
+        case "public.app-category.graphics-design": "Graphics & Design"
+        case "public.app-category.healthcare-fitness": "Health & Fitness"
+        case "public.app-category.lifestyle": "Lifestyle"
+        case "public.app-category.medical": "Medical"
+        case "public.app-category.music": "Music"
+        case "public.app-category.news": "News"
+        case "public.app-category.photography": "Photography"
+        case "public.app-category.productivity": "Productivity"
+        case "public.app-category.reference": "Reference"
+        case "public.app-category.social-networking": "Social Networking"
+        case "public.app-category.sports": "Sports"
+        case "public.app-category.travel": "Travel"
+        case "public.app-category.utilities": "Utilities"
+        case "public.app-category.video": "Video"
+        case "public.app-category.weather": "Weather"
+        default:
+            category
+                .replacingOccurrences(of: "public.app-category.", with: "")
+                .split(separator: "-")
+                .map { word in
+                    String(word.prefix(1)).uppercased() + String(word.dropFirst())
+                }
+                .joined(separator: " ")
+        }
+    }
+
+    private func nextFolderName(basedOn baseName: String, on pageIndex: Int) -> String {
+        guard pages.indices.contains(pageIndex) else { return baseName }
+
+        let existingNames = Set(
+            pages[pageIndex].items
+                .filter { $0.kind == .folder }
+                .map { $0.effectiveDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase }
+        )
+        let normalizedBaseName = baseName.localizedLowercase
+        guard existingNames.contains(normalizedBaseName) else { return baseName }
+
+        var suffix = 2
+        while existingNames.contains("\(normalizedBaseName) \(suffix)") {
+            suffix += 1
+        }
+        return "\(baseName) \(suffix)"
     }
 
     private func merge(existing: [LaunchPage], scanned: [LaunchItem]) -> [LaunchPage] {
@@ -1002,6 +1205,8 @@ final class KidoXStore {
                 merged[location.pageIndex].items[location.itemIndex].url = scannedItem.url
                 merged[location.pageIndex].items[location.itemIndex].bundleIdentifier = scannedItem.bundleIdentifier
                 merged[location.pageIndex].items[location.itemIndex].bundleName = scannedItem.bundleName
+                merged[location.pageIndex].items[location.itemIndex].localizedDisplayNames = scannedItem.localizedDisplayNames
+                merged[location.pageIndex].items[location.itemIndex].applicationCategory = scannedItem.applicationCategory
                 merged[location.pageIndex].items[location.itemIndex].version = scannedItem.version
                 merged[location.pageIndex].items[location.itemIndex].sourcePath = scannedItem.sourcePath
             } else if !insertedKeys.contains(key) {
@@ -1030,18 +1235,66 @@ final class KidoXStore {
     }
 
     private func makePages(from scanned: [LaunchItem]) -> [LaunchPage] {
-        scanned
+        makeInitialLayoutGroups(from: scanned)
             .chunked(into: LaunchPage.defaultCapacity)
             .enumerated()
             .map { pageIndex, chunk in
-                let pageItems = chunk.enumerated().map { itemIndex, item in
-                    var copy = item
-                    copy.parentID = nil
-                    copy.sortIndex = itemIndex
-                    return copy
+                var pageItems: [LaunchItem] = []
+                for (rootIndex, group) in chunk.enumerated() {
+                    var root = group.root
+                    root.parentID = nil
+                    root.sortIndex = rootIndex
+                    pageItems.append(root)
+
+                    for (childIndex, childItem) in group.children.enumerated() {
+                        var child = childItem
+                        child.parentID = root.id
+                        child.sortIndex = childIndex
+                        pageItems.append(child)
+                    }
                 }
                 return LaunchPage(sortIndex: pageIndex, items: pageItems)
             }
+    }
+
+    private func makeInitialLayoutGroups(from scanned: [LaunchItem]) -> [InitialLayoutGroup] {
+        let systemUtilities = scanned.filter(isDefaultSystemUtilityApplication)
+        guard systemUtilities.count > 1 else {
+            return scanned.map { InitialLayoutGroup(root: $0) }
+        }
+
+        let systemUtilityKeys = Set(systemUtilities.map(stableKey(for:)))
+        var groups = scanned
+            .filter { !systemUtilityKeys.contains(stableKey(for: $0)) }
+            .map { InitialLayoutGroup(root: $0) }
+
+        let folderID = UUID()
+        let folderURL = URL(string: "kidox://folder/\(folderID.uuidString)")
+            ?? URL(fileURLWithPath: "/System/Applications/Utilities", isDirectory: true)
+        let folder = LaunchItem(
+            id: folderID,
+            kind: .folder,
+            displayName: applicationCategoryDisplayName("public.app-category.utilities"),
+            subtitle: "",
+            url: folderURL,
+            applicationCategory: "public.app-category.utilities",
+            sourcePath: "",
+            addedAt: systemUtilities.map(\.addedAt).min() ?? Date()
+        )
+
+        groups.append(InitialLayoutGroup(root: folder, children: systemUtilities))
+        return groups.sorted {
+            localizedNameCompare($0.root, $1.root) == .orderedAscending
+        }
+    }
+
+    private func isDefaultSystemUtilityApplication(_ item: LaunchItem) -> Bool {
+        guard item.kind == .application else { return false }
+        guard item.bundleIdentifier?.localizedLowercase.hasPrefix("com.apple.") == true else { return false }
+
+        let path = item.sourcePath.isEmpty ? item.url.path : item.sourcePath
+        return path.hasPrefix("/System/Applications/Utilities/")
+            || path.hasPrefix("/System/Cryptexes/App/System/Applications/Utilities/")
     }
 
     private func append(_ scannedItem: LaunchItem, to pages: inout [LaunchPage]) {

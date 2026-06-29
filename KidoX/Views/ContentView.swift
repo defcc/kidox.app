@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import OSLog
 import SwiftUI
 
 enum SearchDragLog {
@@ -72,6 +73,10 @@ enum KidoXBackgroundStyle: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    func localizedTitle(languageRawValue: String? = nil) -> String {
+        KidoXL10n.ui(title, languageRawValue: languageRawValue)
+    }
+
     var description: String {
         switch self {
         case .wallpaper:
@@ -83,6 +88,10 @@ enum KidoXBackgroundStyle: String, CaseIterable, Identifiable, Hashable {
         case .solid:
             "Use a fixed dark background."
         }
+    }
+
+    func localizedDescription(languageRawValue: String? = nil) -> String {
+        KidoXL10n.ui(description, languageRawValue: languageRawValue)
     }
 
     var requiresPro: Bool {
@@ -208,6 +217,40 @@ private struct PageTurnAnimationRequest: Equatable {
     let targetPage: Int
 }
 
+private struct GridCompactionAnimationRequest: Equatable {
+    let id: UUID
+    let removedItemID: LaunchItem.ID
+}
+
+private enum TileReorderMotion {
+    static let duration: TimeInterval = 0.52
+    private static let c1x = 0.22
+    private static let c1y = 1.0
+    private static let c2x = 0.36
+    private static let c2y = 1.0
+
+    static var swiftUIAnimation: Animation {
+        .timingCurve(c1x, c1y, c2x, c2y, duration: duration)
+    }
+
+    static var caTimingFunction: CAMediaTimingFunction {
+        CAMediaTimingFunction(
+            controlPoints: Float(c1x),
+            Float(c1y),
+            Float(c2x),
+            Float(c2y)
+        )
+    }
+}
+
+private enum TileDropMotion {
+    static let duration: TimeInterval = 0.18
+
+    static var swiftUIAnimation: Animation {
+        .interpolatingSpring(stiffness: 520, damping: 38)
+    }
+}
+
 struct KidoXBackgroundLayer: View {
     var body: some View {
         KidoXBackground()
@@ -239,6 +282,7 @@ private func proMenuAttributedTitle(_ title: String, showsPro: Bool) -> NSAttrib
 private struct SettingsMenuClickTarget: NSViewRepresentable {
     let selectedSort: KidoXLaunchSort
     let isPro: Bool
+    let isPaidLicense: Bool
     let onOpenSettings: () -> Void
     let onPurchasePro: () -> Void
     let onActivateLicense: () -> Void
@@ -278,10 +322,10 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
             let menu = NSMenu()
             menu.autoenablesItems = false
 
-            addItem(to: menu, title: "Open Settings", action: #selector(openSettings(_:)))
+            addItem(to: menu, title: KidoXL10n.ui("Open Settings"), action: #selector(openSettings(_:)))
             menu.addItem(.separator())
 
-            let sectionItem = NSMenuItem(title: "Sort By", action: nil, keyEquivalent: "")
+            let sectionItem = NSMenuItem(title: KidoXL10n.ui("Sort By"), action: nil, keyEquivalent: "")
             sectionItem.isEnabled = false
             menu.addItem(sectionItem)
 
@@ -297,16 +341,16 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
             menu.addItem(.separator())
             addItem(
                 to: menu,
-                title: parent.isPro ? "Purchase More License" : "Purchase Pro",
+                title: KidoXL10n.ui(parent.isPaidLicense ? "Purchase More License" : "Purchase Pro"),
                 action: #selector(purchasePro(_:))
             )
-            if parent.isPro {
-                addDisabledItem(to: menu, title: "License Activated")
+            if parent.isPaidLicense {
+                addDisabledItem(to: menu, title: KidoXL10n.ui("License Activated"))
             } else {
-                addItem(to: menu, title: "Activate License", action: #selector(activateLicense(_:)))
+                addItem(to: menu, title: KidoXL10n.ui("Activate License"), action: #selector(activateLicense(_:)))
             }
             menu.addItem(.separator())
-            addItem(to: menu, title: "Quit", action: #selector(quit(_:)))
+            addItem(to: menu, title: KidoXL10n.ui("Quit"), action: #selector(quit(_:)))
 
             menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 4), in: sender)
         }
@@ -324,7 +368,7 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
         }
 
         private func attributedTitle(for sort: KidoXLaunchSort) -> NSAttributedString {
-            proMenuAttributedTitle(sort.title, showsPro: !parent.isPro && sort.requiresPro)
+            proMenuAttributedTitle(KidoXL10n.ui(sort.title), showsPro: !parent.isPro && sort.requiresPro)
         }
 
         @objc private func openSettings(_ sender: NSMenuItem) {
@@ -355,13 +399,23 @@ private struct SettingsMenuClickTarget: NSViewRepresentable {
 }
 
 struct KidoXForegroundLayer: View {
+    private static let uninstallerLogger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.clyapps.KidoX",
+        category: "Uninstaller"
+    )
+
     @Bindable var store: KidoXStore
     let onDismiss: () -> Void
     let onLaunchApp: () -> Void
     let onOpenSettings: () -> Void
     let onOpenLicenseSettings: () -> Void
+    let onOpenUninstallerSettings: () -> Void
+    let onModalInteractionChanged: (Bool) -> Void
+    let onRestoreFocusAfterModalInteraction: () -> Void
+    @AppStorage(KidoXLanguage.storageKey) private var appLanguageRaw = KidoXLanguage.system.rawValue
     @AppStorage(KidoXLaunchSort.storageKey) private var launchSortRaw = KidoXLaunchSort.default.rawValue
     @AppStorage("ClyAppLicense.status") private var licenseStatus = "Free"
+    @AppStorage("ClyAppLicense.entitlementType") private var licenseEntitlementType = ""
     @State private var searchFocused = false
     @State private var searchTextIsComposing = false
     @State private var currentPage = 0
@@ -392,6 +446,8 @@ struct KidoXForegroundLayer: View {
     @State private var folderDragOriginSlot: Int?
     @State private var folderOrderOverride: [LaunchItem.ID]?
     @State private var folderDragHasExited = false
+    @State private var folderDragExitPanelOrigin: CGPoint?
+    @State private var isCompletingFolderDrag = false
     @State private var rootDragStartRequest: RootDragStartRequest?
     @State private var folderOverlayIsExpanded = false
     @State private var folderOverlayProgress: CGFloat = 0
@@ -401,6 +457,12 @@ struct KidoXForegroundLayer: View {
     @State private var dragEdgeEnteredAt: Date?
     @State private var dragEdgeHasTurnedInCurrentRun = false
     @State private var keyboardSelectionID: LaunchItem.ID?
+    @State private var uninstallSession: UninstallPanelSession?
+    @State private var uninstallCompletionAnimation: UninstallCompletionAnimation?
+    @State private var gridCompactionAnimationRequest: GridCompactionAnimationRequest?
+    @State private var hasFullDiskAccess = Self.detectFullDiskAccess()
+
+    private let privilegedHelperClient = KidoXPrivilegedHelperClient()
 
     private let dragActivationDistance: CGFloat = 6
     private let pageTurnReleaseThreshold: CGFloat = 64
@@ -411,8 +473,6 @@ struct KidoXForegroundLayer: View {
     private let dragPageTurnRepeatDwell: TimeInterval = 1.0
     private let dragPageTurnCooldown: TimeInterval = 0.3
     private let dropTargetIconSize: CGFloat = 108
-    private let folderTileWidth: CGFloat = 174
-    private let folderTileHeight: CGFloat = 128
 
     private var isIconInteractionActive: Bool {
         pressedItemID != nil
@@ -429,6 +489,10 @@ struct KidoXForegroundLayer: View {
 
     private var isPro: Bool {
         licenseStatus == "active"
+    }
+
+    private var isPaidLicense: Bool {
+        isPro && licenseEntitlementType != "trial"
     }
 
     var body: some View {
@@ -476,6 +540,87 @@ struct KidoXForegroundLayer: View {
                         .zIndex(40)
                         .allowsHitTesting(false)
                 }
+
+                if let uninstallSession {
+                    UninstallPanelRouteView(
+                        session: uninstallSession,
+                        isPro: isPro,
+                        hasFullDiskAccess: hasFullDiskAccess,
+                        anchor: uninstallPopoverAnchor(for: uninstallSession.item, size: proxy.size),
+                        onCancel: {
+                            setUninstallSession(nil)
+                            focusSearchField()
+                        },
+                        onConfirm: { item, plan in
+                            await performInlineUninstall(item, plan: plan)
+                        },
+                        onRetryFailedItems: { result in
+                            await retryFailedUninstallDataRemovals(result)
+                        },
+                        onOpenPrivacySettings: {
+                            openAppDataPrivacySettings()
+                        },
+                        onOpenUninstallerSettings: {
+                            setUninstallSession(nil)
+                            onOpenUninstallerSettings()
+                        },
+                        onRevealInFinder: { item in
+                            store.revealInFinder(item)
+                        },
+                        onUpgradeToPro: {
+                            setUninstallSession(nil)
+                            onOpenLicenseSettings()
+                        }
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                    .zIndex(100)
+                }
+
+                if let uninstallCompletionAnimation {
+                    UninstallPoofAnimation(
+                        animation: uninstallCompletionAnimation,
+                        onFinished: {
+                            guard self.uninstallCompletionAnimation?.id == uninstallCompletionAnimation.id else { return }
+                            Self.uninstallerLogger.notice(
+                                "Poof completion callback received. animationID=\(uninstallCompletionAnimation.id.uuidString, privacy: .public) item='\(uninstallCompletionAnimation.item.effectiveDisplayName, privacy: .public)' itemID=\(uninstallCompletionAnimation.item.id.uuidString, privacy: .public)"
+                            )
+                            let compactionRequest = GridCompactionAnimationRequest(
+                                id: UUID(),
+                                removedItemID: uninstallCompletionAnimation.item.id
+                            )
+                            gridCompactionAnimationRequest = compactionRequest
+                            Self.uninstallerLogger.debug(
+                                "Created grid compaction request after poof. requestID=\(compactionRequest.id.uuidString, privacy: .public) removedItemID=\(compactionRequest.removedItemID.uuidString, privacy: .public)"
+                            )
+                            self.uninstallCompletionAnimation = nil
+                            withAnimation(.snappy(duration: 0.22)) {
+                                let pageMutationResult = store.removeUninstalledApplicationRecord(uninstallCompletionAnimation.item)
+                                let removedItemID = uninstallCompletionAnimation.item.id.uuidString
+                                let removedPageCount = pageMutationResult.removedPagePositions.count
+                                let didRemovePages = pageMutationResult.didRemovePages
+                                Self.uninstallerLogger.debug(
+                                    "Removed uninstalled app record after poof. itemID=\(removedItemID, privacy: .public) removedPages=\(removedPageCount, privacy: .public) didRemovePages=\(didRemovePages, privacy: .public)"
+                                )
+                                applyPageMutationResult(pageMutationResult)
+                                reconcileOpenFolderAfterUninstall()
+                                ensureKeyboardSelectionIsValid()
+                            }
+                            focusSearchField()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                if gridCompactionAnimationRequest?.id == compactionRequest.id {
+                                    Self.uninstallerLogger.debug(
+                                        "Clearing grid compaction request. requestID=\(compactionRequest.id.uuidString, privacy: .public)"
+                                    )
+                                    gridCompactionAnimationRequest = nil
+                                }
+                            }
+                        }
+                    )
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .allowsHitTesting(false)
+                    .zIndex(110)
+                }
             }
             .onAppear {
                 currentSize = proxy.size
@@ -488,12 +633,22 @@ struct KidoXForegroundLayer: View {
             }
         }
         .ignoresSafeArea()
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            hasFullDiskAccess = Self.detectFullDiskAccess()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .kidoXPanelEscapeRequested)) { _ in
+            handleEscape()
+        }
         .onChange(of: store.searchFocusRequestID) { _, _ in
             focusSearchField()
+        }
+        .onDisappear {
+            onModalInteractionChanged(false)
         }
         .onChange(of: store.searchQuery) { oldValue, newValue in
             let wasSearching = !oldValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let isSearchingNow = !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            closeFolderForSearchInputIfNeeded(isSearchingNow: isSearchingNow)
             if !wasSearching, isSearchingNow {
                 // 进入搜索：记住当前页
                 pageBeforeSearch = currentPage
@@ -550,7 +705,7 @@ struct KidoXForegroundLayer: View {
 
             ZStack(alignment: .leading) {
                 if store.searchQuery.isEmpty && !searchTextIsComposing {
-                    Text("Search Applications")
+                    Text(KidoXL10n.string(.searchApplications, languageRawValue: appLanguageRaw))
                         .font(.system(size: 14, weight: .regular))
                         .foregroundStyle(Color.white.opacity(0.72))
                         .allowsHitTesting(false)
@@ -583,7 +738,7 @@ struct KidoXForegroundLayer: View {
                         .foregroundStyle(.white.opacity(0.72))
                 }
                 .buttonStyle(.plain)
-                .help("Clear search")
+                .help(KidoXL10n.ui("Clear search", languageRawValue: appLanguageRaw))
             }
         }
         .padding(.horizontal, 20)
@@ -607,6 +762,7 @@ struct KidoXForegroundLayer: View {
             SettingsMenuClickTarget(
                 selectedSort: launchSort,
                 isPro: isPro,
+                isPaidLicense: isPaidLicense,
                 onOpenSettings: onOpenSettings,
                 onPurchasePro: {
                     NSWorkspace.shared.open(KidoXAppConfiguration.purchaseURL)
@@ -650,7 +806,7 @@ struct KidoXForegroundLayer: View {
                 )
         )
         .shadow(color: .black.opacity(0.16), radius: 9, x: 0, y: 5)
-        .help("Settings")
+        .help(KidoXL10n.string(.settings, languageRawValue: appLanguageRaw))
     }
 
     private func focusSearchField() {
@@ -722,6 +878,8 @@ struct KidoXForegroundLayer: View {
             showsProBadges: !isPro,
             rootDragStartRequest: rootDragStartRequest,
             pageTurnAnimationRequest: pageTurnAnimationRequest,
+            compactionAnimationRequest: gridCompactionAnimationRequest,
+            visuallyHiddenItemID: store.openFolderID ?? uninstallCompletionAnimation?.item.id,
             onPageTurn: { page in
                 moveKeyboardSelectionToFirstItem(on: page)
             },
@@ -742,6 +900,9 @@ struct KidoXForegroundLayer: View {
             onReveal: { item in
                 store.revealInFinder(item)
                 onDismiss()
+            },
+            onUninstall: { item in
+                confirmUninstall(item)
             },
             onRenameItem: { itemID, name in
                 guard isPro else {
@@ -846,9 +1007,14 @@ struct KidoXForegroundLayer: View {
             isPressed: isPressed && !isPlaceholder,
             isDragging: false,
             isDropTarget: shouldShowDropTarget(for: item),
+            metrics: appTileMetrics(for: size),
             canRename: isPro,
+            showsProBadges: !isPro,
             openAction: { open(item) },
             revealAction: { store.revealInFinder(item) },
+            uninstallAction: canUninstall(item) ? {
+                confirmUninstall(item)
+            } : nil,
             renameAction: { name in
                 guard isPro else {
                     onOpenLicenseSettings()
@@ -876,8 +1042,10 @@ struct KidoXForegroundLayer: View {
             isPressed: !isCompletingDrag,
             isDragging: !isCompletingDrag,
             isDropTarget: false,
+            metrics: appTileMetrics(for: currentSize),
             openAction: { },
             revealAction: { },
+            uninstallAction: nil,
             renameAction: nil,
             ungroupAction: nil
         )
@@ -937,21 +1105,20 @@ struct KidoXForegroundLayer: View {
                 x: tileX(index: itemIndex, columns: columns, size: size),
                 y: tileY(index: itemIndex, columns: columns, rows: rows, size: size)
             )
-            return appTileContentHit(at: point, center: center, item: item)
+            return appTileContentHit(at: point, center: center, item: item, size: size)
         }
     }
 
-    private func appTileContentHit(at point: CGPoint, center: CGPoint, item: LaunchItem) -> Bool {
-        let iconSize: CGFloat = 102
-        let tileWidth: CGFloat = 174
-        let labelSpacing: CGFloat = 5
-        let labelFont = NSFont.systemFont(ofSize: 13, weight: .regular)
-        let labelHeight = ceil(labelFont.ascender - labelFont.descender + labelFont.leading)
+    private func appTileContentHit(at point: CGPoint, center: CGPoint, item: LaunchItem, size: CGSize) -> Bool {
+        let metrics = appTileMetrics(for: size)
+        let iconSize = metrics.iconSize
+        let labelFont = appTileLabelFont(for: metrics)
+        let labelHeight = appTileLabelHeight(for: metrics)
         let labelWidth = min(
             ceil((item.effectiveDisplayName as NSString).size(withAttributes: [.font: labelFont]).width),
-            tileWidth
+            metrics.tileWidth
         )
-        let contentHeight = iconSize + labelSpacing + labelHeight
+        let contentHeight = iconSize + metrics.labelSpacing + labelHeight
         let iconRect = CGRect(
             x: center.x - iconSize / 2,
             y: center.y - contentHeight / 2,
@@ -960,7 +1127,7 @@ struct KidoXForegroundLayer: View {
         )
         let labelRect = CGRect(
             x: center.x - labelWidth / 2,
-            y: iconRect.maxY + labelSpacing,
+            y: iconRect.maxY + metrics.labelSpacing,
             width: labelWidth,
             height: labelHeight
         )
@@ -1135,6 +1302,236 @@ struct KidoXForegroundLayer: View {
         }
     }
 
+    private func confirmUninstall(_ item: LaunchItem) {
+        guard item.kind == .application else { return }
+        guard isPro else {
+            setUninstallSession(nil)
+            resetDragState()
+            resetFolderDragState()
+            onOpenLicenseSettings()
+            return
+        }
+
+        hasFullDiskAccess = Self.detectFullDiskAccess()
+        guard canUninstall(item) else {
+            setUninstallSession(UninstallPanelSession(
+                item: item,
+                phase: .failed("\(item.effectiveDisplayName) is a protected macOS system app and cannot be moved to Trash by KidoX.")
+            ))
+            return
+        }
+
+        let session = UninstallPanelSession(item: item, phase: .planning)
+        setUninstallSession(session)
+        resetDragState()
+        resetFolderDragState()
+
+        Task { @MainActor in
+            do {
+                let helperIsReady = await isPrivilegedHelperReady()
+                hasFullDiskAccess = Self.detectFullDiskAccess()
+                if !hasFullDiskAccess || !helperIsReady {
+                    guard uninstallSession?.id == session.id else { return }
+                    uninstallSession?.phase = .setupRequired(
+                        missingFullDiskAccess: !hasFullDiskAccess,
+                        missingHelper: !helperIsReady
+                    )
+                    return
+                }
+                let plan = try await store.makeUninstallPlan(for: item)
+                guard uninstallSession?.id == session.id else { return }
+                uninstallSession?.phase = .confirming(plan)
+            } catch {
+                guard uninstallSession?.id == session.id else { return }
+                uninstallSession?.phase = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func canUninstall(_ item: LaunchItem) -> Bool {
+        item.kind == .application && ApplicationUninstaller.canUninstallApplication(at: item.url)
+    }
+
+    @MainActor
+    private func isPrivilegedHelperReady() async -> Bool {
+        do {
+            let version = try await privilegedHelperClient.installedHelperVersion()
+            return version.compare(KidoXPrivilegedHelper.version, options: .numeric) != .orderedAscending
+        } catch {
+            return false
+        }
+    }
+
+    @MainActor
+    private func performInlineUninstall(_ item: LaunchItem, plan: ApplicationUninstallPlan) async -> Bool {
+        uninstallSession?.phase = .uninstalling(plan)
+        let completionAnimation = makeUninstallCompletionAnimation(for: item, size: currentSize)
+        if let completionAnimation {
+            Self.uninstallerLogger.notice(
+                "Prepared poof animation for uninstall. animationID=\(completionAnimation.id.uuidString, privacy: .public) item='\(item.effectiveDisplayName, privacy: .public)' itemID=\(item.id.uuidString, privacy: .public) center=(\(completionAnimation.center.x, privacy: .public), \(completionAnimation.center.y, privacy: .public)) iconSize=\(completionAnimation.iconSize, privacy: .public) container=(\(completionAnimation.containerSize.width, privacy: .public), \(completionAnimation.containerSize.height, privacy: .public))"
+            )
+        } else {
+            Self.uninstallerLogger.error(
+                "Could not prepare poof animation for uninstall. item='\(item.effectiveDisplayName, privacy: .public)' itemID=\(item.id.uuidString, privacy: .public) currentSize=(\(currentSize.width, privacy: .public), \(currentSize.height, privacy: .public))"
+            )
+        }
+
+        do {
+            let uninstallResult = try await store.uninstallApplicationKeepingRecord(item, plan: plan)
+            onRestoreFocusAfterModalInteraction()
+            if uninstallResult.hasDataRemovalFailures {
+                let pageMutationResult = store.removeUninstalledApplicationRecord(item)
+                applyPageMutationResult(pageMutationResult)
+                reconcileOpenFolderAfterUninstall()
+                ensureKeyboardSelectionIsValid()
+                setUninstallSession(UninstallPanelSession(item: item, phase: .completed(uninstallResult)))
+            } else {
+                setUninstallSession(nil)
+                if let completionAnimation {
+                    Self.uninstallerLogger.notice(
+                        "Starting poof overlay after successful uninstall. animationID=\(completionAnimation.id.uuidString, privacy: .public) itemID=\(item.id.uuidString, privacy: .public)"
+                    )
+                    uninstallCompletionAnimation = completionAnimation
+                } else {
+                    let pageMutationResult = store.removeUninstalledApplicationRecord(item)
+                    let itemID = item.id.uuidString
+                    let removedPageCount = pageMutationResult.removedPagePositions.count
+                    let didRemovePages = pageMutationResult.didRemovePages
+                    Self.uninstallerLogger.debug(
+                        "Removed uninstalled app record without poof animation. itemID=\(itemID, privacy: .public) removedPages=\(removedPageCount, privacy: .public) didRemovePages=\(didRemovePages, privacy: .public)"
+                    )
+                    applyPageMutationResult(pageMutationResult)
+                    reconcileOpenFolderAfterUninstall()
+                    ensureKeyboardSelectionIsValid()
+                }
+            }
+            return true
+        } catch {
+            onRestoreFocusAfterModalInteraction()
+            uninstallSession?.phase = .failed(error.localizedDescription)
+            return true
+        }
+    }
+
+    @MainActor
+    private func retryFailedUninstallDataRemovals(_ result: ApplicationUninstallResult) async -> Bool {
+        let updatedResult = await store.retryFailedUninstallDataRemovals(from: result)
+        onRestoreFocusAfterModalInteraction()
+        uninstallSession?.phase = .completed(updatedResult)
+        return true
+    }
+
+    private func openAppDataPrivacySettings() {
+        let candidateURLs = [
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_AllFiles"),
+            URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension")
+        ]
+
+        if let url = candidateURLs.compactMap({ $0 }).first {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func makeUninstallCompletionAnimation(for item: LaunchItem, size: CGSize) -> UninstallCompletionAnimation? {
+        guard size.width > 0, size.height > 0 else { return nil }
+        let metrics = appTileMetrics(for: size)
+        let icon = NSWorkspace.shared.icon(forFile: item.sourcePath)
+        icon.size = CGSize(width: metrics.iconSize, height: metrics.iconSize)
+
+        let center = uninstallAnimationCenter(for: item, size: size)
+        return UninstallCompletionAnimation(
+            item: item,
+            icon: icon,
+            center: center,
+            containerSize: size,
+            iconSize: metrics.iconSize
+        )
+    }
+
+    private func uninstallPopoverAnchor(for item: LaunchItem, size: CGSize) -> CGPoint {
+        uninstallAnimationCenter(for: item, size: size)
+    }
+
+    private func uninstallAnimationCenter(for item: LaunchItem, size: CGSize) -> CGPoint {
+        if let openFolderID = store.openFolderID,
+           item.parentID == openFolderID {
+            let children = store.children(of: openFolderID)
+            let ordered = folderDisplayOrder(children)
+            if let itemIndex = ordered.firstIndex(where: { $0.id == item.id }) {
+                let layoutHeight = folderGridLayoutHeight(for: size, itemCount: children.count)
+                let tileCenter = folderTilePosition(
+                    index: itemIndex,
+                    itemCount: children.count,
+                    size: size,
+                    layoutHeight: layoutHeight
+                )
+                let origin = folderPanelOrigin(folderID: openFolderID, size: size)
+                return CGPoint(
+                    x: origin.x + tileCenter.x,
+                    y: origin.y + tileCenter.y - appTileIconLabelYOffset(for: size)
+                )
+            }
+        }
+
+        let columns = columnCount(for: size)
+        let rows = rowCount(for: size)
+        let pageSize = max(columns * rows, 1)
+        let pages = visiblePages(pageSize: pageSize)
+        let pageIndex = currentPage >= 0 && currentPage < pages.count ? currentPage : 0
+        if pageIndex < pages.count {
+            let pageItems = displayOrder(for: pageIndex, items: pages[pageIndex])
+            if let itemIndex = pageItems.firstIndex(where: { $0.id == item.id }) {
+                return CGPoint(
+                    x: tileX(index: itemIndex, columns: columns, size: size),
+                    y: tileY(index: itemIndex, columns: columns, rows: rows, size: size)
+                        - appTileIconLabelYOffset(for: size)
+                )
+            }
+        }
+
+        return CGPoint(x: size.width / 2, y: size.height / 2)
+    }
+
+    private func reconcileOpenFolderAfterUninstall() {
+        guard let openFolderID = store.openFolderID else { return }
+        if store.items.contains(where: { $0.id == openFolderID }) {
+            return
+        }
+
+        store.openFolderID = nil
+        folderOverlayIsExpanded = false
+        folderOverlayProgress = 0
+    }
+
+    private static func detectFullDiskAccess() -> Bool {
+        let fileManager = FileManager.default
+        let libraryURL = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first
+        let probeURLs = [
+            libraryURL?.appendingPathComponent("Mail", isDirectory: true),
+            libraryURL?.appendingPathComponent("Messages", isDirectory: true),
+            libraryURL?.appendingPathComponent("Safari", isDirectory: true)
+        ].compactMap { $0 }
+
+        var testedProtectedLocation = false
+        for url in probeURLs where fileManager.fileExists(atPath: url.path) {
+            testedProtectedLocation = true
+            if (try? fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) != nil {
+                return true
+            }
+        }
+
+        return !testedProtectedLocation
+    }
+
+    private func formattedByteCount(_ byteCount: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
+    }
+
     private static let folderMorphAnimation: Animation = .spring(response: 0.42, dampingFraction: 0.92, blendDuration: 0.06)
     private static let folderMorphDuration: TimeInterval = 0.42
 
@@ -1154,9 +1551,14 @@ struct KidoXForegroundLayer: View {
         }
     }
 
-    private func closeFolder() {
+    private func closeFolder(
+        resetsFolderDragState: Bool = true,
+        focusSearchAfterClose: Bool = false
+    ) {
         withAnimation(Self.folderMorphAnimation) {
-            resetFolderDragState()
+            if resetsFolderDragState {
+                resetFolderDragState()
+            }
             folderOverlayIsExpanded = false
             folderOverlayProgress = 0
             pressedItemID = nil
@@ -1164,14 +1566,27 @@ struct KidoXForegroundLayer: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.folderMorphDuration + 0.02) {
             guard !folderOverlayIsExpanded else { return }
             store.openFolderID = nil
+            if focusSearchAfterClose {
+                focusSearchField()
+            }
         }
+    }
+
+    private func closeFolderForSearchInputIfNeeded(isSearchingNow: Bool) {
+        guard isSearchingNow, store.openFolderID != nil, folderOverlayIsExpanded else { return }
+        closeFolder()
     }
 
     // ESC 三层语义：folder 优先关 folder，其次清搜索，最后才 dismiss panel。
     // inline rename 在自己的 field editor key monitor 中优先处理 ESC。
     private func handleEscape() {
+        if uninstallSession != nil {
+            setUninstallSession(nil)
+            focusSearchField()
+            return
+        }
         if store.openFolderID != nil {
-            closeFolder()
+            closeFolder(focusSearchAfterClose: true)
             return
         }
         if isSearching {
@@ -1179,6 +1594,11 @@ struct KidoXForegroundLayer: View {
             return
         }
         onDismiss()
+    }
+
+    private func setUninstallSession(_ session: UninstallPanelSession?) {
+        uninstallSession = session
+        onModalInteractionChanged(session != nil)
     }
 
     private func clearSearch() {
@@ -1527,12 +1947,12 @@ struct KidoXForegroundLayer: View {
         }
 
         isCompletingDrag = true
-        withAnimation(.interpolatingSpring(stiffness: 520, damping: 38)) {
+        withAnimation(TileDropMotion.swiftUIAnimation) {
             dragLocation = targetLocation
         }
 
         let shouldAnimateLayoutCommit = dragDropTargetID != nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + TileDropMotion.duration) {
             finishDragWithoutAnimation(animateLayout: shouldAnimateLayoutCommit)
         }
     }
@@ -1625,7 +2045,7 @@ struct KidoXForegroundLayer: View {
         VStack(spacing: 12) {
             ProgressView()
                 .controlSize(.large)
-            Text("Scanning Applications")
+            Text(KidoXL10n.ui("Scanning Applications", languageRawValue: appLanguageRaw))
                 .font(.headline)
         }
         .padding(22)
@@ -1638,7 +2058,10 @@ struct KidoXForegroundLayer: View {
             Image(systemName: "square.grid.3x3")
                 .font(.system(size: 38, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text(store.searchQuery.isEmpty ? "No applications found" : "No matching apps")
+            Text(KidoXL10n.ui(
+                store.searchQuery.isEmpty ? "No applications found" : "No matching apps",
+                languageRawValue: appLanguageRaw
+            ))
                 .font(.headline)
         }
         .padding(22)
@@ -1657,6 +2080,7 @@ struct KidoXForegroundLayer: View {
             let progress = folderOverlayProgress
             let easedProgress = smoothStep(progress)
             let panelWidth = folderPanelWidth(for: size)
+            let metrics = appTileMetrics(for: size)
 
             let iconCenter = folderIconCenter(folderID: folderID, size: size)
                 ?? CGPoint(
@@ -1670,14 +2094,13 @@ struct KidoXForegroundLayer: View {
             let posX = interpolate(from: iconCenter.x, to: panelCenter.x, progress: easedProgress)
             let posY = interpolate(from: iconCenter.y, to: panelCenter.y, progress: easedProgress)
 
-            let visualWidth = interpolate(from: folderIconVisualSize, to: panelWidth, progress: easedProgress)
-            let visualHeight = interpolate(from: folderIconVisualSize, to: panelHeight, progress: easedProgress)
+            let visualWidth = interpolate(from: folderIconVisualSize(for: metrics), to: panelWidth, progress: easedProgress)
+            let visualHeight = interpolate(from: folderIconVisualSize(for: metrics), to: panelHeight, progress: easedProgress)
             let uniformScale = visualWidth / panelWidth
 
             let contentOpacity = folderPanelContentOpacity(progress)
             let sourcePreviewOpacity = folderSourcePreviewOpacity(progress)
-            let sourcePreviewScale = interpolate(from: 1, to: 1.04, progress: clamped(progress / 0.32))
-            let visualCornerRadius = interpolate(from: folderIconCornerRadius, to: 40, progress: easedProgress)
+            let visualCornerRadius = interpolate(from: folderIconCornerRadius(for: metrics), to: 40, progress: easedProgress)
             let visualShape = RoundedRectangle(cornerRadius: visualCornerRadius, style: .continuous)
 
             ZStack {
@@ -1716,7 +2139,7 @@ struct KidoXForegroundLayer: View {
 
                     ZStack(alignment: .top) {
                         if children.isEmpty {
-                            Text("No applications")
+                            Text(KidoXL10n.ui("No applications", languageRawValue: appLanguageRaw))
                                 .font(.system(size: 15, weight: .regular))
                                 .foregroundStyle(.white.opacity(0.72))
                                 .padding(.top, 74)
@@ -1784,9 +2207,9 @@ struct KidoXForegroundLayer: View {
                     FolderPreviewIcon(
                         items: children,
                         isDropTarget: false,
-                        size: folderIconFrameSize
+                        size: metrics.iconSize,
+                        showsBackground: false
                     )
-                    .scaleEffect(sourcePreviewScale, anchor: .center)
                     .opacity(sourcePreviewOpacity)
                     .allowsHitTesting(false)
                 }
@@ -1826,13 +2249,24 @@ struct KidoXForegroundLayer: View {
                     isPressed: folderPressedItemID == item.id && !isPlaceholder,
                     isDragging: false,
                     isDropTarget: false,
+                    metrics: folderTileMetrics(for: size),
                     openAction: { open(item) },
                     revealAction: { store.revealInFinder(item) },
-                    renameAction: nil,
+                    uninstallAction: canUninstall(item) ? {
+                        confirmUninstall(item)
+                    } : nil,
+                    renameAction: { name in
+                        guard isPro else {
+                            onOpenLicenseSettings()
+                            return
+                        }
+                        store.renameItem(item.id, to: name)
+                    },
+                    renameUnavailableAction: onOpenLicenseSettings,
                     ungroupAction: nil
                 )
-                .opacity(isPlaceholder ? 0 : 1)
-                .allowsHitTesting(!isPlaceholder)
+                .opacity(isPlaceholder || item.id == uninstallCompletionAnimation?.item.id || item.id == gridCompactionAnimationRequest?.removedItemID ? 0 : 1)
+                .allowsHitTesting(!isPlaceholder && item.id != uninstallCompletionAnimation?.item.id)
                 .position(
                     folderTilePosition(
                         index: itemIndex,
@@ -1857,11 +2291,13 @@ struct KidoXForegroundLayer: View {
             AppTile(
                 item: folderDraggedItem,
                 previewItems: folderDraggedItem.kind == .folder ? store.children(of: folderDraggedItem.id) : [],
-                isPressed: true,
-                isDragging: true,
+                isPressed: !isCompletingFolderDrag,
+                isDragging: !isCompletingFolderDrag,
                 isDropTarget: false,
+                metrics: folderTileMetrics(for: size),
                 openAction: { },
                 revealAction: { },
+                uninstallAction: nil,
                 renameAction: nil,
                 ungroupAction: nil
             )
@@ -1890,6 +2326,7 @@ struct KidoXForegroundLayer: View {
         drag: DragGesture.Value,
         size: CGSize
     ) {
+        guard !isCompletingFolderDrag else { return }
         guard !folderDragHasExited else { return }
 
         if folderPressedItemID != item.id {
@@ -1916,6 +2353,10 @@ struct KidoXForegroundLayer: View {
         folderPressedItemID = nil
 
         guard wasDragging else {
+            if folderDragHasExited {
+                resetFolderDragState()
+                return
+            }
             let distance = hypot(drag.translation.width, drag.translation.height)
             if distance <= dragActivationDistance {
                 open(item)
@@ -1933,9 +2374,9 @@ struct KidoXForegroundLayer: View {
             return
         }
 
-        if let override = folderOrderOverride,
-           let targetSlot = override.firstIndex(of: item.id) {
-            store.reorder(itemID: item.id, toSlot: targetSlot)
+        if folderOrderOverride?.firstIndex(of: item.id) != nil {
+            completeFolderTileDrag(item: item, children: children, size: size)
+            return
         }
         resetFolderDragState()
     }
@@ -1972,6 +2413,7 @@ struct KidoXForegroundLayer: View {
         )
         folderOrderOverride = children.map(\.id)
         folderDragHasExited = false
+        isCompletingFolderDrag = false
     }
 
     private func updateFolderTileDrag(
@@ -1986,6 +2428,7 @@ struct KidoXForegroundLayer: View {
         )
 
         if folderDragHasExited {
+            updateRootDragStartRequestCurrentPoint(pointerLocation: drag.location, size: size)
             return
         }
 
@@ -2008,8 +2451,55 @@ struct KidoXForegroundLayer: View {
         order.insert(item.id, at: bounded)
 
         guard folderOrderOverride != order else { return }
-        withAnimation(.snappy(duration: 0.18)) {
+        withAnimation(TileReorderMotion.swiftUIAnimation) {
             folderOrderOverride = order
+        }
+    }
+
+    private func completeFolderTileDrag(
+        item: LaunchItem,
+        children: [LaunchItem],
+        size: CGSize
+    ) {
+        guard let targetLocation = finalFolderDragLocation(item: item, children: children, size: size) else {
+            finishFolderDragWithoutAnimation(item: item)
+            return
+        }
+
+        isCompletingFolderDrag = true
+        withAnimation(TileDropMotion.swiftUIAnimation) {
+            folderDragLocation = targetLocation
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + TileDropMotion.duration) {
+            finishFolderDragWithoutAnimation(item: item)
+        }
+    }
+
+    private func finalFolderDragLocation(
+        item: LaunchItem,
+        children: [LaunchItem],
+        size: CGSize
+    ) -> CGPoint? {
+        let displayItems = folderDisplayOrder(children)
+        guard let targetSlot = displayItems.firstIndex(where: { $0.id == item.id }) else { return nil }
+        return folderTilePosition(
+            index: targetSlot,
+            itemCount: children.count,
+            size: size,
+            layoutHeight: folderGridLayoutHeight(for: size, itemCount: children.count)
+        )
+    }
+
+    private func finishFolderDragWithoutAnimation(item: LaunchItem) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            if let override = folderOrderOverride,
+               let targetSlot = override.firstIndex(of: item.id) {
+                store.reorder(itemID: item.id, toSlot: targetSlot)
+            }
+            resetFolderDragState()
         }
     }
 
@@ -2023,6 +2513,8 @@ struct KidoXForegroundLayer: View {
         folderDragOriginSlot = nil
         folderOrderOverride = nil
         folderDragHasExited = false
+        folderDragExitPanelOrigin = nil
+        isCompletingFolderDrag = false
     }
 
     private func beginFolderDragExitIfNeeded(
@@ -2034,6 +2526,7 @@ struct KidoXForegroundLayer: View {
         folderDragHasExited = true
 
         let panelOrigin = folderPanelOrigin(size: size)
+        folderDragExitPanelOrigin = panelOrigin
         let globalPointerLocation = CGPoint(
             x: panelOrigin.x + pointerLocation.x,
             y: panelOrigin.y + pointerLocation.y
@@ -2072,28 +2565,36 @@ struct KidoXForegroundLayer: View {
         folderDraggingItemID = nil
         folderDraggedItem = nil
         folderDragLocation = .zero
+        folderDragStartLocation = nil
         folderDragFingerOffset = .zero
+        folderDragOriginSlot = nil
         folderOrderOverride = nil
 
-        withAnimation(Self.folderMorphAnimation) {
-            folderOverlayIsExpanded = false
-            folderOverlayProgress = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.folderMorphDuration + 0.02) {
-            guard !folderOverlayIsExpanded else { return }
-            store.openFolderID = nil
-        }
+        closeFolder(resetsFolderDragState: false)
+    }
+
+    private func updateRootDragStartRequestCurrentPoint(pointerLocation: CGPoint, size: CGSize) {
+        guard let request = rootDragStartRequest else { return }
+        let panelOrigin = folderDragExitPanelOrigin ?? folderPanelOrigin(size: size)
+        rootDragStartRequest = RootDragStartRequest(
+            id: request.id,
+            itemID: request.itemID,
+            startPoint: request.startPoint,
+            currentPoint: CGPoint(
+                x: panelOrigin.x + pointerLocation.x,
+                y: panelOrigin.y + pointerLocation.y
+            ),
+            fingerOffset: request.fingerOffset,
+            targetPage: request.targetPage
+        )
     }
 
     private func commitFolderDragExit(_ item: LaunchItem, at panelPoint: CGPoint, size: CGSize) {
         guard folderDraggingItemID == item.id else { return }
         let targetSlot = rootSlotForFolderExit(at: panelPoint, size: size)
         applyPageMutationResult(store.moveItemToRootPage(itemID: item.id, toPage: currentPage, toSlot: targetSlot))
-        withAnimation(.snappy(duration: 0.18)) {
-            resetFolderDragState()
-            resetDragState()
-            store.openFolderID = nil
-        }
+        resetDragState()
+        closeFolder()
     }
 
     private func folderDisplayOrder(_ children: [LaunchItem]) -> [LaunchItem] {
@@ -2114,11 +2615,12 @@ struct KidoXForegroundLayer: View {
         let row = index / columns
         let margin = folderGridHorizontalPadding(for: size)
         let slotWidth = (folderPanelWidth(for: size) - margin * 2) / CGFloat(columns)
+        let metrics = folderTileMetrics(for: size)
         let x = margin + slotWidth * (CGFloat(column) + 0.5)
         let y = folderGridTopPadding
-            + folderTileHeight / 2
+            + metrics.tileHeight / 2
             + CGFloat(row) * (
-                folderTileHeight
+                metrics.tileHeight
                     + effectiveFolderGridRowSpacing(
                         for: size,
                         itemCount: itemCount,
@@ -2132,7 +2634,7 @@ struct KidoXForegroundLayer: View {
         let columns = max(1, folderGridColumnCount(for: size))
         let margin = folderGridHorizontalPadding(for: size)
         let slotWidth = (folderPanelWidth(for: size) - margin * 2) / CGFloat(columns)
-        let stepY = folderTileHeight + effectiveFolderGridRowSpacing(
+        let stepY = folderTileMetrics(for: size).tileHeight + effectiveFolderGridRowSpacing(
             for: size,
             itemCount: itemCount,
             layoutHeight: layoutHeight
@@ -2154,12 +2656,13 @@ struct KidoXForegroundLayer: View {
         let columns = max(1, folderGridColumnCount(for: size))
         let margin = folderGridHorizontalPadding(for: size)
         let slotWidth = (folderPanelWidth(for: size) - margin * 2) / CGFloat(columns)
-        let stepY = folderTileHeight + effectiveFolderGridRowSpacing(
+        let metrics = folderTileMetrics(for: size)
+        let stepY = metrics.tileHeight + effectiveFolderGridRowSpacing(
             for: size,
             itemCount: children.count,
             layoutHeight: layoutHeight
         )
-        let firstRowCenterY = folderGridTopPadding + folderTileHeight / 2
+        let firstRowCenterY = folderGridTopPadding + metrics.tileHeight / 2
         let maxRow = max(0, (children.count - 1) / columns)
         let rawRow = Int(((point.y - firstRowCenterY) / max(stepY, 1)).rounded())
         let targetRow = max(0, min(maxRow, rawRow))
@@ -2580,18 +3083,21 @@ struct KidoXForegroundLayer: View {
     }
 
     private var appChromeOpacity: CGFloat {
+        guard !folderDragHasExited else { return 1 }
         guard store.openFolderID != nil else { return 1 }
         let delayed = clamped((folderOverlayProgress - 0.55) / 0.45)
         return interpolate(from: 1, to: 0, progress: delayed)
     }
 
     private var backgroundGridBlurRadius: CGFloat {
+        guard !folderDragHasExited else { return 0 }
         guard store.openFolderID != nil else { return 0 }
         let delayed = clamped((folderOverlayProgress - 0.45) / 0.55)
         return interpolate(from: 0, to: 5, progress: delayed)
     }
 
     private var backgroundGridScale: CGFloat {
+        guard !folderDragHasExited else { return 1 }
         guard store.openFolderID != nil else { return 1 }
         let delayed = clamped((folderOverlayProgress - 0.45) / 0.55)
         return interpolate(from: 1, to: 0.92, progress: delayed)
@@ -2612,29 +3118,31 @@ struct KidoXForegroundLayer: View {
 
     private func folderPanelContentHeight(for size: CGSize, itemCount: Int) -> CGFloat {
         let rows = folderGridRowCount(for: size, itemCount: itemCount)
+        let metrics = folderTileMetrics(for: size)
         return folderGridTopPadding
             + folderGridBottomPadding
-            + CGFloat(rows) * folderTileHeight
+            + CGFloat(rows) * metrics.tileHeight
             + CGFloat(max(rows - 1, 0)) * folderGridRowSpacing(for: size)
     }
 
     private func folderGridColumns(for size: CGSize) -> [GridItem] {
         let columnCount = folderGridColumnCount(for: size)
         return Array(
-            repeating: GridItem(.fixed(folderTileWidth), spacing: folderGridColumnSpacing(for: size), alignment: .top),
+            repeating: GridItem(.fixed(folderTileMetrics(for: size).tileWidth), spacing: folderGridColumnSpacing(for: size), alignment: .top),
             count: columnCount
         )
     }
 
     private func folderGridColumnCount(for size: CGSize) -> Int {
-        max(3, min(7, Int(folderPanelWidth(for: size) / 220)))
+        let minimumColumnWidth = max(178, folderTileMetrics(for: size).tileWidth + 46)
+        return max(3, min(7, Int(folderPanelWidth(for: size) / minimumColumnWidth)))
     }
 
     private func folderGridColumnSpacing(for size: CGSize) -> CGFloat {
         let columnCount = folderGridColumnCount(for: size)
         let available = folderPanelWidth(for: size) - folderGridHorizontalPadding(for: size) * 2
         guard columnCount > 1 else { return 0 }
-        return max(28, min(92, (available - CGFloat(columnCount) * folderTileWidth) / CGFloat(columnCount - 1)))
+        return max(28, min(92, (available - CGFloat(columnCount) * folderTileMetrics(for: size).tileWidth) / CGFloat(columnCount - 1)))
     }
 
     private func folderGridRowSpacing(for size: CGSize) -> CGFloat {
@@ -2648,7 +3156,7 @@ struct KidoXForegroundLayer: View {
         let available = layoutHeight
             - folderGridTopPadding
             - folderGridBottomPadding
-            - CGFloat(rows) * folderTileHeight
+            - CGFloat(rows) * folderTileMetrics(for: size).tileHeight
         return max(0, min(folderGridRowSpacing(for: size), available / CGFloat(rows - 1)))
     }
 
@@ -2707,16 +3215,16 @@ struct KidoXForegroundLayer: View {
         36
     }
 
-    private var folderIconFrameSize: CGFloat {
-        AppTileMetrics.standard.iconSize
+    private func folderTileMetrics(for size: CGSize) -> AppTileMetrics {
+        appTileMetrics(for: size)
     }
 
-    private var folderIconVisualSize: CGFloat {
-        folderIconFrameSize * 82 / 102
+    private func folderIconVisualSize(for metrics: AppTileMetrics) -> CGFloat {
+        metrics.iconSize * 82 / 102
     }
 
-    private var folderIconCornerRadius: CGFloat {
-        folderIconVisualSize * 0.30
+    private func folderIconCornerRadius(for metrics: AppTileMetrics) -> CGFloat {
+        folderIconVisualSize(for: metrics) * 0.30
     }
 
     private func folderPanelContentOpacity(_ progress: CGFloat) -> CGFloat {
@@ -2742,16 +3250,57 @@ struct KidoXForegroundLayer: View {
 
     private func folderIconCenter(folderID: LaunchItem.ID, size: CGSize) -> CGPoint? {
         guard var center = folderTileCenter(folderID: folderID, size: size) else { return nil }
-        center.y -= (appTileLabelSpacing + appTileLabelHeight) / 2
+        center.y -= appTileIconLabelYOffset(for: size)
         return center
     }
 
-    private var appTileLabelSpacing: CGFloat {
-        5
+    private func appTileMetrics(for size: CGSize) -> AppTileMetrics {
+        let columns = max(columnCount(for: size), 1)
+        let rows = max(rowCount(for: size), 1)
+        let columnWidth = max(contentWidth(for: size), 1) / CGFloat(columns)
+        let rowStride: CGFloat
+        if rows > 1 {
+            rowStride = max((gridBottomY(for: size) - gridTopY(for: size)) / CGFloat(rows - 1), 1)
+        } else {
+            rowStride = max(gridBottomY(for: size) - gridTopY(for: size), 1)
+        }
+
+        let rawIconSize = min(columnWidth * 0.58, rowStride * 0.74)
+        let iconSize = min(max(rawIconSize.rounded(.toNearestOrAwayFromZero), 82), 132)
+        let labelSpacing: CGFloat = 5
+        let labelFontSize: CGFloat = 13
+        let labelHeight = appTileLabelHeight(for: labelFontSize)
+        let tileWidth = max(132, min(columnWidth * 0.92, iconSize + 72))
+        let tileHeight = iconSize + labelSpacing + labelHeight + 5
+
+        return AppTileMetrics(
+            tileWidth: tileWidth.rounded(.toNearestOrAwayFromZero),
+            tileHeight: tileHeight.rounded(.toNearestOrAwayFromZero),
+            iconSize: iconSize,
+            labelSpacing: labelSpacing,
+            labelFontSize: labelFontSize
+        )
     }
 
-    private var appTileLabelHeight: CGFloat {
-        let font = NSFont.systemFont(ofSize: 13, weight: .regular)
+    private func appTileIconLabelYOffset(for size: CGSize) -> CGFloat {
+        let metrics = appTileMetrics(for: size)
+        return (metrics.labelSpacing + appTileLabelHeight(for: metrics)) / 2
+    }
+
+    private func appTileLabelFont(for metrics: AppTileMetrics) -> NSFont {
+        appTileLabelFont(size: metrics.labelFontSize)
+    }
+
+    private func appTileLabelFont(size: CGFloat) -> NSFont {
+        NSFont.systemFont(ofSize: size, weight: .regular)
+    }
+
+    private func appTileLabelHeight(for metrics: AppTileMetrics) -> CGFloat {
+        appTileLabelHeight(for: metrics.labelFontSize)
+    }
+
+    private func appTileLabelHeight(for fontSize: CGFloat) -> CGFloat {
+        let font = appTileLabelFont(size: fontSize)
         return ceil(font.ascender - font.descender + font.leading)
     }
 
@@ -3370,8 +3919,10 @@ private struct AppTile: View, Equatable {
     var isRenaming: Bool = false
     var renameCommitRequestID: Int = 0
     var canRename: Bool = true
+    var showsProBadges: Bool = false
     let openAction: () -> Void
     let revealAction: () -> Void
+    var uninstallAction: (() -> Void)? = nil
     let renameAction: ((String) -> Void)?
     var renameUnavailableAction: (() -> Void)? = nil
     var renameCancelAction: (() -> Void)? = nil
@@ -3391,6 +3942,7 @@ private struct AppTile: View, Equatable {
             && lhs.isRenaming == rhs.isRenaming
             && lhs.renameCommitRequestID == rhs.renameCommitRequestID
             && lhs.canRename == rhs.canRename
+            && lhs.showsProBadges == rhs.showsProBadges
     }
 
     var body: some View {
@@ -3556,90 +4108,36 @@ private struct AppTile: View, Equatable {
 
     @ViewBuilder
     private var contextMenuContent: some View {
-        Button("Open") {
+        Button(KidoXL10n.string(.open)) {
             openAction()
         }
         if item.kind == .folder {
             if renameAction != nil {
-                Button(canRename ? "Rename" : "Rename  Pro") {
+                Button(canRename ? KidoXL10n.string(.rename) : "\(KidoXL10n.string(.rename))  Pro") {
                     beginRename()
                 }
             }
             Divider()
             if let ungroupAction {
-                Button("Ungroup Folder") {
+                Button(KidoXL10n.ui("Ungroup Folder")) {
                     ungroupAction()
                 }
             }
         } else {
+            Button(KidoXL10n.string(.showInFinder)) {
+                revealAction()
+            }
             if renameAction != nil {
-                Button(canRename ? "Rename" : "Rename  Pro") {
+                Button(canRename ? KidoXL10n.string(.rename) : "\(KidoXL10n.string(.rename))  Pro") {
                     beginRename()
                 }
             }
-            Button("Show in Finder") {
-                revealAction()
+            if let uninstallAction {
+                Divider()
+                Button(showsProBadges ? "\(KidoXL10n.string(.uninstallAppEllipsis))  Pro" : KidoXL10n.string(.uninstallAppEllipsis)) {
+                    uninstallAction()
+                }
             }
-            Divider()
-            Text(item.bundleIdentifier ?? item.sourcePath)
-        }
-    }
-}
-
-private struct FolderDetailAppTile: View, Equatable {
-    let item: LaunchItem
-    let previewItems: [LaunchItem]
-    let isPressed: Bool
-    let isDragging: Bool
-    let openAction: () -> Void
-    let revealAction: () -> Void
-
-    nonisolated static func == (lhs: FolderDetailAppTile, rhs: FolderDetailAppTile) -> Bool {
-        lhs.item == rhs.item
-            && lhs.previewItems == rhs.previewItems
-            && lhs.isPressed == rhs.isPressed
-            && lhs.isDragging == rhs.isDragging
-    }
-
-    var body: some View {
-        Button(action: openAction) {
-            VStack(spacing: 7) {
-                icon
-                    .frame(width: 96, height: 96)
-
-                Text(item.effectiveDisplayName)
-                    .font(.system(size: 13, weight: .regular))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.55), radius: 2, x: 0, y: 1)
-                    .frame(width: 174)
-            }
-            .frame(width: 174, height: 128)
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .opacity(isDragging ? 0.96 : 1)
-        .contextMenu {
-            Button("Open") {
-                openAction()
-            }
-            Button("Show in Finder") {
-                revealAction()
-            }
-            Divider()
-            Text(item.bundleIdentifier ?? item.sourcePath)
-        }
-    }
-
-    @ViewBuilder
-    private var icon: some View {
-        if item.kind == .folder {
-            FolderPreviewIcon(items: previewItems, isDropTarget: false, size: 96)
-        } else {
-            Image(nsImage: IconCache.rasterizedIcon(for: item.sourcePath, pointSize: 96))
-                .frame(width: 96, height: 96)
         }
     }
 }
@@ -4152,14 +4650,20 @@ private struct FolderPreviewIcon: View, Equatable {
     let items: [LaunchItem]
     let isDropTarget: Bool
     let size: CGFloat
+    var showsBackground = true
 
     nonisolated static func == (lhs: FolderPreviewIcon, rhs: FolderPreviewIcon) -> Bool {
-        lhs.items == rhs.items && lhs.isDropTarget == rhs.isDropTarget && lhs.size == rhs.size
+        lhs.items == rhs.items
+            && lhs.isDropTarget == rhs.isDropTarget
+            && lhs.size == rhs.size
+            && lhs.showsBackground == rhs.showsBackground
     }
 
     var body: some View {
         ZStack {
-            FolderGlassBackground(size: isDropTarget ? dropTargetSize : visibleSize, showsStroke: !isDropTarget)
+            if showsBackground {
+                FolderGlassBackground(size: isDropTarget ? dropTargetSize : visibleSize, showsStroke: !isDropTarget)
+            }
 
             ZStack(alignment: .topLeading) {
                 Color.clear
@@ -4601,11 +5105,14 @@ private struct AppKitPagedGridView: NSViewRepresentable {
     let showsProBadges: Bool
     let rootDragStartRequest: RootDragStartRequest?
     let pageTurnAnimationRequest: PageTurnAnimationRequest?
+    let compactionAnimationRequest: GridCompactionAnimationRequest?
+    let visuallyHiddenItemID: LaunchItem.ID?
     let onPageTurn: (Int) -> Void
     let onCreateBoundaryPage: (Int) -> Int?
     let onRootDragStarted: (UUID) -> Void
     let onOpen: (LaunchItem) -> Void
     let onReveal: (LaunchItem) -> Void
+    let onUninstall: (LaunchItem) -> Void
     let onRenameItem: (LaunchItem.ID, String) -> Void
     let onRenameUnavailable: () -> Void
     let onRenameEnded: () -> Void
@@ -4631,6 +5138,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
         }
         view.onOpen = onOpen
         view.onReveal = onReveal
+        view.onUninstall = onUninstall
         view.onRenameItem = onRenameItem
         view.onRenameUnavailable = onRenameUnavailable
         view.onRenameEnded = onRenameEnded
@@ -4645,6 +5153,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
         view.onCreateBoundaryPage = onCreateBoundaryPage
         view.isRenameEnabled = isRenameEnabled
         view.showsProBadges = showsProBadges
+        view.visuallyHiddenItemID = visuallyHiddenItemID
         return view
     }
 
@@ -4659,6 +5168,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
         }
         nsView.onOpen = onOpen
         nsView.onReveal = onReveal
+        nsView.onUninstall = onUninstall
         nsView.onRenameItem = onRenameItem
         nsView.onRenameUnavailable = onRenameUnavailable
         nsView.onRenameEnded = onRenameEnded
@@ -4675,6 +5185,7 @@ private struct AppKitPagedGridView: NSViewRepresentable {
         nsView.showsProBadges = showsProBadges
         nsView.isInSearchMode = isInSearchMode
         nsView.rootDragStartRequest = rootDragStartRequest
+        nsView.visuallyHiddenItemID = visuallyHiddenItemID
         nsView.configure(
             pages: pages,
             childrenByFolderID: childrenByFolderID,
@@ -4687,7 +5198,8 @@ private struct AppKitPagedGridView: NSViewRepresentable {
             gridTopY: gridTopY,
             gridBottomY: gridBottomY,
             isReorderingEnabled: isReorderingEnabled,
-            pageTurnAnimationRequest: pageTurnAnimationRequest
+            pageTurnAnimationRequest: pageTurnAnimationRequest,
+            compactionAnimationRequest: compactionAnimationRequest
         )
         nsView.updateSelection(itemID: selectedItemID)
     }
@@ -4706,6 +5218,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     var onPageChanged: ((Int) -> Void)?
     var onOpen: ((LaunchItem) -> Void)?
     var onReveal: ((LaunchItem) -> Void)?
+    var onUninstall: ((LaunchItem) -> Void)?
     var onRenameItem: ((LaunchItem.ID, String) -> Void)?
     var onRenameUnavailable: (() -> Void)?
     var onRenameEnded: (() -> Void)?
@@ -4730,7 +5243,9 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     }
     var showsProBadges: Bool = true
     var rootDragStartRequest: RootDragStartRequest?
+    var visuallyHiddenItemID: LaunchItem.ID?
     private var handledPageTurnAnimationRequestID: UUID?
+    private var handledCompactionAnimationRequestID: UUID?
 
     // 当搜索态触发拖拽时记下来，等下一次 configure (退出搜索后) 再实际开始拖拽
     private var pendingSearchDragItem: LaunchItem?
@@ -4818,7 +5333,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     private let dragPageTurnRepeatDwell: TimeInterval = 1.0
     private let dragPageTurnCooldown: TimeInterval = 0.3
     private let mouseWheelPageTurnCooldown: TimeInterval = 0.22
-    private let tileReorderAnimationDuration: TimeInterval = 0.52
+    private let tileReorderAnimationDuration = TileReorderMotion.duration
     private let tileDropTargetFinishAnimationDuration: TimeInterval = 0.18
     private let dropTargetIconSize: CGFloat = 108
     private let enablesAppSystemDragBridge = true
@@ -5068,7 +5583,8 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         gridTopY: CGFloat,
         gridBottomY: CGFloat,
         isReorderingEnabled: Bool,
-        pageTurnAnimationRequest: PageTurnAnimationRequest?
+        pageTurnAnimationRequest: PageTurnAnimationRequest?,
+        compactionAnimationRequest: GridCompactionAnimationRequest?
     ) {
         let previousTileMetrics = tileMetrics
         let shouldRebuild = self.pages != pages
@@ -5092,6 +5608,29 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
 
         if willAnimatePageTurn {
             handledPageTurnAnimationRequestID = pageTurnAnimationRequest?.id
+        }
+        let shouldPrepareCompactionAnimation = compactionAnimationRequest != nil
+            && compactionAnimationRequest?.id != handledCompactionAnimationRequestID
+            && compactionAnimationRequest.map { request in
+                tileRecords.contains(where: { $0.item.id == request.removedItemID })
+                    && !pages.contains { page in
+                        page.contains { $0.id == request.removedItemID }
+                    }
+            } == true
+        if let compactionAnimationRequest, shouldPrepareCompactionAnimation {
+            handledCompactionAnimationRequestID = compactionAnimationRequest.id
+            pendingDropCompactionSourceFrames = Dictionary(
+                uniqueKeysWithValues: tileRecords
+                    .filter { $0.item.id != compactionAnimationRequest.removedItemID }
+                    .map {
+                        (
+                            $0.item.id,
+                            PendingDropCompactionSourceFrame(
+                                globalFrame: globalFrame(for: $0)
+                            )
+                        )
+                    }
+            )
         }
 
         self.pages = pages
@@ -5125,6 +5664,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         let pendingDropCompactionAnimations = preparePendingDropCompactionAnimationIfNeeded()
         finishPendingDrop()
         runPendingDropCompactionAnimations(pendingDropCompactionAnimations)
+        applyVisualHiddenState()
         applySelectionHighlight()
         flushPendingSearchDragIfNeeded()
         startRootDragIfNeeded()
@@ -5317,7 +5857,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             // 同一项：直接平滑挪到新位置（page 切换 / 布局变化）
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.18
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                context.timingFunction = TileReorderMotion.caTimingFunction
                 context.allowsImplicitAnimation = true
                 existing.animator().frame = frame
             }
@@ -5400,13 +5940,12 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         CATransaction.setDisableActions(true)
         for record in tileRecords {
             guard let source = sourceFrames[record.item.id],
-                  source.pageIndex == record.pageIndex,
-                  source.frame != record.frame
+                  source.globalFrame != globalFrame(for: record)
             else {
                 continue
             }
 
-            setVisual(record.visual, frame: source.frame, pageIndex: source.pageIndex)
+            setVisual(record.visual, globalFrame: source.globalFrame, targetPageIndex: record.pageIndex)
             animations.append(
                 PendingDropCompactionAnimation(
                     visual: record.visual,
@@ -5425,7 +5964,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = tileReorderAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+            context.timingFunction = TileReorderMotion.caTimingFunction
             context.allowsImplicitAnimation = true
             for animation in animations {
                 setVisual(
@@ -5475,47 +6014,51 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        let openItem = NSMenuItem(title: "Open", action: #selector(handleContextOpen(_:)), keyEquivalent: "")
+        let openItem = NSMenuItem(title: KidoXL10n.string(.open), action: #selector(handleContextOpen(_:)), keyEquivalent: "")
         openItem.target = self
         openItem.representedObject = item
         menu.addItem(openItem)
 
         if item.kind == .folder {
-            let renameItem = NSMenuItem(title: "Rename", action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
+            let renameItem = NSMenuItem(title: KidoXL10n.string(.rename), action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
             renameItem.target = self
             renameItem.representedObject = item
-            renameItem.attributedTitle = proMenuAttributedTitle("Rename", showsPro: !isRenameEnabled)
+            renameItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.rename), showsPro: !isRenameEnabled)
             menu.addItem(renameItem)
 
             menu.addItem(.separator())
 
-            let ungroupItem = NSMenuItem(title: "Ungroup Folder", action: #selector(handleContextUngroupFolder(_:)), keyEquivalent: "")
+            let ungroupItem = NSMenuItem(title: KidoXL10n.ui("Ungroup Folder"), action: #selector(handleContextUngroupFolder(_:)), keyEquivalent: "")
             ungroupItem.target = self
             ungroupItem.representedObject = item
             menu.addItem(ungroupItem)
         } else {
-            let renameItem = NSMenuItem(title: "Rename", action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
-            renameItem.target = self
-            renameItem.representedObject = item
-            renameItem.attributedTitle = proMenuAttributedTitle("Rename", showsPro: !isRenameEnabled)
-            menu.addItem(renameItem)
-
-            let revealItem = NSMenuItem(title: "Show in Finder", action: #selector(handleContextReveal(_:)), keyEquivalent: "")
+            let revealItem = NSMenuItem(title: KidoXL10n.string(.showInFinder), action: #selector(handleContextReveal(_:)), keyEquivalent: "")
             revealItem.target = self
             revealItem.representedObject = item
             menu.addItem(revealItem)
 
-            let hideItem = NSMenuItem(title: "Hide App", action: #selector(handleContextHide(_:)), keyEquivalent: "")
+            let renameItem = NSMenuItem(title: KidoXL10n.string(.rename), action: #selector(handleContextRenameItem(_:)), keyEquivalent: "")
+            renameItem.target = self
+            renameItem.representedObject = item
+            renameItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.rename), showsPro: !isRenameEnabled)
+            menu.addItem(renameItem)
+
+            let hideItem = NSMenuItem(title: KidoXL10n.string(.hideApp), action: #selector(handleContextHide(_:)), keyEquivalent: "")
             hideItem.target = self
             hideItem.representedObject = item
-            hideItem.attributedTitle = proMenuAttributedTitle("Hide App", showsPro: showsProBadges)
+            hideItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.hideApp), showsPro: showsProBadges)
             menu.addItem(hideItem)
 
-            menu.addItem(.separator())
+            if ApplicationUninstaller.canUninstallApplication(at: item.url) {
+                menu.addItem(.separator())
 
-            let info = NSMenuItem(title: item.bundleIdentifier ?? item.sourcePath, action: nil, keyEquivalent: "")
-            info.isEnabled = false
-            menu.addItem(info)
+                let uninstallItem = NSMenuItem(title: KidoXL10n.string(.uninstallAppEllipsis), action: #selector(handleContextUninstall(_:)), keyEquivalent: "")
+                uninstallItem.target = self
+                uninstallItem.representedObject = item
+                uninstallItem.attributedTitle = proMenuAttributedTitle(KidoXL10n.string(.uninstallAppEllipsis), showsPro: showsProBadges)
+                menu.addItem(uninstallItem)
+            }
         }
 
         return menu
@@ -5548,6 +6091,11 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     @objc private func handleContextHide(_ sender: NSMenuItem) {
         guard let item = sender.representedObject as? LaunchItem else { return }
         onHide?(item)
+    }
+
+    @objc private func handleContextUninstall(_ sender: NSMenuItem) {
+        guard let item = sender.representedObject as? LaunchItem else { return }
+        onUninstall?(item)
     }
 
     private func beginInlineRename(for item: LaunchItem) {
@@ -5727,8 +6275,17 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             let point = self.convert(event.locationInWindow, from: nil)
             switch event.type {
             case .leftMouseDragged:
+                if self.tileDragUsesSystemDrag {
+                    return nil
+                }
+                if self.beginAppSystemDragIfNeeded(event: event, point: point) {
+                    return nil
+                }
                 self.updateTileDrag(at: point)
             case .leftMouseUp:
+                if self.tileDragUsesSystemDrag {
+                    return nil
+                }
                 self.removeRootDragMonitor()
                 self.finishTileDrag(at: point)
             default:
@@ -6132,8 +6689,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                             (
                                 $0.item.id,
                                 PendingDropCompactionSourceFrame(
-                                    frame: $0.frame,
-                                    pageIndex: $0.pageIndex
+                                    globalFrame: self.globalFrame(for: $0)
                                 )
                             )
                         }
@@ -6221,7 +6777,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
             context.duration = isDroppingIntoTarget
                 ? tileDropTargetFinishAnimationDuration
                 : tileReorderAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+            context.timingFunction = TileReorderMotion.caTimingFunction
             context.allowsImplicitAnimation = true
             overlay.animator().frame = finalFrame
             if isDroppingIntoTarget {
@@ -6431,7 +6987,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         let finalFrame = convertGridRectToOverlayHost(finalFrameInGrid, in: host)
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.52
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+            context.timingFunction = TileReorderMotion.caTimingFunction
             context.allowsImplicitAnimation = true
             overlay.animator().frame = finalFrame
         }, completionHandler: {
@@ -6605,7 +7161,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                 hostingView.frame = folderFrame
                 hostingView.wantsLayer = true
                 hostingView.layer?.backgroundColor = NSColor.clear.cgColor
-                hostingView.isHidden = item.id == tileDraggedItem?.id
+                hostingView.isHidden = isVisualHidden(item)
                 containerView.addSubview(hostingView)
                 folderTileViews.append(hostingView)
                 tileRecords.append(
@@ -6630,7 +7186,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                     metrics: metrics
                 )
                 tileLayer.actions = disabledActions
-                tileLayer.isHidden = item.id == tileDraggedItem?.id
+                tileLayer.isHidden = isVisualHidden(item)
                 pageLayer.addSublayer(tileLayer)
                 tileRecords.append(
                     TileRecord(
@@ -6809,13 +7365,13 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         if animated {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = tileReorderAnimationDuration
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                context.timingFunction = TileReorderMotion.caTimingFunction
                 context.allowsImplicitAnimation = true
 
                 CATransaction.begin()
                 CATransaction.setAnimationDuration(tileReorderAnimationDuration)
                 CATransaction.setAnimationTimingFunction(
-                    CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                    TileReorderMotion.caTimingFunction
                 )
 
                 for pageIndex in pages.indices {
@@ -6849,6 +7405,16 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
         CATransaction.commit()
     }
 
+    private func applyVisualHiddenState() {
+        for record in tileRecords {
+            setVisual(record.visual, hidden: isVisualHidden(record.item))
+        }
+    }
+
+    private func isVisualHidden(_ item: LaunchItem) -> Bool {
+        item.id == tileDraggedItem?.id || item.id == visuallyHiddenItemID
+    }
+
     private func setVisual(_ visual: TileVisual, hidden: Bool) {
         switch visual {
         case .layer(let layer):
@@ -6872,7 +7438,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                     anim.fromValue = NSValue(point: NSPoint(x: fromPosition.x, y: fromPosition.y))
                     anim.toValue = NSValue(point: NSPoint(x: toPosition.x, y: toPosition.y))
                     anim.duration = tileReorderAnimationDuration
-                    anim.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+                    anim.timingFunction = TileReorderMotion.caTimingFunction
                     layer.add(anim, forKey: "tileReorderPosition")
                 }
                 layer.actions = disabledActions
@@ -6887,6 +7453,20 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
                 view.frame = target
             }
         }
+    }
+
+    private func setVisual(_ visual: TileVisual, globalFrame: CGRect, targetPageIndex: Int) {
+        switch visual {
+        case .layer(let layer):
+            let localFrame = globalFrame.offsetBy(dx: -CGFloat(targetPageIndex) * pageWidth, dy: 0)
+            layer.frame = layerFrameForTileFrame(localFrame)
+        case .view(let view):
+            view.frame = globalFrame
+        }
+    }
+
+    private func globalFrame(for record: TileRecord) -> CGRect {
+        record.frame.offsetBy(dx: CGFloat(record.pageIndex) * pageWidth, dy: 0)
     }
 
     private func setPressedVisual(itemID: LaunchItem.ID?) {
@@ -7487,8 +8067,7 @@ private final class AppKitPagedGridNSView: NSView, NSDraggingSource {
     }
 
     private struct PendingDropCompactionSourceFrame {
-        let frame: CGRect
-        let pageIndex: Int
+        let globalFrame: CGRect
     }
 
     private struct PendingDropCompactionAnimation {

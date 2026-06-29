@@ -6,6 +6,7 @@ struct ApplicationScanner: Sendable {
         var roots = [
             URL(fileURLWithPath: "/Applications", isDirectory: true),
             URL(fileURLWithPath: "/System/Applications", isDirectory: true),
+            URL(fileURLWithPath: "/System/Cryptexes/App/System/Applications", isDirectory: true),
             URL(fileURLWithPath: "/System/Applications/Utilities", isDirectory: true)
         ]
 
@@ -72,15 +73,15 @@ struct ApplicationScanner: Sendable {
 
         let bundle = Bundle(url: url)
         let info = bundle?.infoDictionary
-        let localizedInfo = bundle?.localizedInfoDictionary
-
-        let localizedName = localizedInfo?["CFBundleDisplayName"] as? String
-            ?? localizedInfo?["CFBundleName"] as? String
+        let localizedDisplayNames = localizedApplicationNames(bundle: bundle, info: info, fallbackURL: url)
+        let localizedName = selectedLocalizedApplicationName(bundle: bundle, info: info, fallbackURL: url)
+            ?? localizedDisplayNames.first
             ?? info?["CFBundleDisplayName"] as? String
             ?? info?["CFBundleName"] as? String
             ?? url.deletingPathExtension().lastPathComponent
 
         let bundleIdentifier = bundle?.bundleIdentifier
+        let applicationCategory = info?["LSApplicationCategoryType"] as? String
         let version = info?["CFBundleShortVersionString"] as? String
         let parentName = url.deletingLastPathComponent().lastPathComponent
         let resourceValues = try? url.resourceValues(forKeys: [
@@ -100,11 +101,141 @@ struct ApplicationScanner: Sendable {
             url: url,
             bundleIdentifier: bundleIdentifier,
             bundleName: info?["CFBundleName"] as? String,
+            localizedDisplayNames: localizedDisplayNames,
+            applicationCategory: applicationCategory,
             version: version,
             sourcePath: url.path,
             sortIndex: fallbackIndex,
             addedAt: addedAt
         )
+    }
+
+    private static func selectedLocalizedApplicationName(
+        bundle: Bundle?,
+        info: [String: Any]?,
+        fallbackURL: URL
+    ) -> String? {
+        let keys = ["CFBundleDisplayName", "CFBundleName"]
+        let selectedLanguage = KidoXLanguage.selected(
+            from: UserDefaults.standard.string(forKey: KidoXLanguage.storageKey) ?? KidoXLanguage.system.rawValue
+        )
+
+        if selectedLanguage == .system {
+            return keys.compactMap { bundle?.localizedInfoDictionary?[$0] as? String }.firstNonEmptyString
+        }
+
+        for identifier in selectedLanguage.bundleLocalizationIdentifiers {
+            if let localized = localizedInfoPlistString(in: bundle, lprojIdentifier: identifier, keys: keys) {
+                return localized
+            }
+            if let localized = localizedInfoPlistLoctableString(in: bundle, localizationIdentifier: identifier, keys: keys) {
+                return localized
+            }
+        }
+
+        return localizedNameFromFileSystem(fallbackURL)
+    }
+
+    private static func localizedApplicationNames(
+        bundle: Bundle?,
+        info: [String: Any]?,
+        fallbackURL: URL
+    ) -> [String] {
+        let keys = ["CFBundleDisplayName", "CFBundleName"]
+        var names: [String] = []
+
+        names.append(contentsOf: keys.compactMap { bundle?.localizedInfoDictionary?[$0] as? String })
+        names.append(contentsOf: keys.compactMap { info?[$0] as? String })
+
+        for identifier in allBundleLocalizationIdentifiers(bundle: bundle) {
+            if let localized = localizedInfoPlistString(in: bundle, lprojIdentifier: identifier, keys: keys) {
+                names.append(localized)
+            }
+            if let localized = localizedInfoPlistLoctableString(in: bundle, localizationIdentifier: identifier, keys: keys) {
+                names.append(localized)
+            }
+        }
+
+        names.append(contentsOf: localizedInfoPlistLoctableStrings(in: bundle, keys: keys))
+
+        if let fileSystemName = localizedNameFromFileSystem(fallbackURL) {
+            names.append(fileSystemName)
+        }
+
+        return names
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .uniquedPreservingOrder()
+    }
+
+    private static func allBundleLocalizationIdentifiers(bundle: Bundle?) -> [String] {
+        guard let bundle else { return [] }
+
+        var identifiers: [String] = []
+        identifiers.append(contentsOf: bundle.preferredLocalizations)
+        identifiers.append(contentsOf: bundle.localizations)
+        if let developmentLocalization = bundle.developmentLocalization {
+            identifiers.append(developmentLocalization)
+        }
+        identifiers.append(contentsOf: KidoXLanguage.allCases.flatMap(\.bundleLocalizationIdentifiers))
+
+        return identifiers.uniquedPreservingOrder()
+    }
+
+    private static func localizedInfoPlistString(
+        in bundle: Bundle?,
+        lprojIdentifier: String,
+        keys: [String]
+    ) -> String? {
+        guard
+            let url = bundle?.url(forResource: "InfoPlist", withExtension: "strings", subdirectory: nil, localization: lprojIdentifier),
+            let strings = NSDictionary(contentsOf: url) as? [String: String]
+        else {
+            return nil
+        }
+
+        return keys.compactMap { strings[$0] }.firstNonEmptyString
+    }
+
+    private static func localizedInfoPlistLoctableString(
+        in bundle: Bundle?,
+        localizationIdentifier: String,
+        keys: [String]
+    ) -> String? {
+        guard
+            let loctableURL = bundle?.url(forResource: "InfoPlist", withExtension: "loctable"),
+            let table = NSDictionary(contentsOf: loctableURL) as? [String: Any],
+            let localizedStrings = table[localizationIdentifier] as? [String: String]
+        else {
+            return nil
+        }
+
+        return keys.compactMap { localizedStrings[$0] }.firstNonEmptyString
+    }
+
+    private static func localizedInfoPlistLoctableStrings(
+        in bundle: Bundle?,
+        keys: [String]
+    ) -> [String] {
+        guard
+            let loctableURL = bundle?.url(forResource: "InfoPlist", withExtension: "loctable"),
+            let table = NSDictionary(contentsOf: loctableURL) as? [String: Any]
+        else {
+            return []
+        }
+
+        return table.values.flatMap { value -> [String] in
+            guard let localizedStrings = value as? [String: String] else { return [] }
+            return keys.compactMap { localizedStrings[$0] }
+        }
+    }
+
+    private static func localizedNameFromFileSystem(_ url: URL) -> String? {
+        (try? url.resourceValues(forKeys: [.localizedNameKey]).localizedName)
+            .flatMap { name in
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed.replacingOccurrences(of: ".app", with: "")
+            }
     }
 }
 
@@ -121,5 +252,37 @@ private extension Array where Element == LaunchItem {
         }
 
         return items
+    }
+}
+
+private extension KidoXLanguage {
+    var bundleLocalizationIdentifiers: [String] {
+        switch self {
+        case .system:
+            []
+        case .english:
+            ["en", "English"]
+        case .simplifiedChinese:
+            ["zh-Hans", "zh_CN", "zh-Hans-CN", "zh"]
+        case .japanese:
+            ["ja", "Japanese"]
+        }
+    }
+}
+
+private extension Array where Element == String {
+    var firstNonEmptyString: String? {
+        for value in self {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+        return nil
+    }
+
+    func uniquedPreservingOrder() -> [String] {
+        var seen = Set<String>()
+        return filter { seen.insert($0).inserted }
     }
 }
