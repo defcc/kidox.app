@@ -636,6 +636,9 @@ struct KidoXForegroundLayer: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             hasFullDiskAccess = Self.detectFullDiskAccess()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .kidoXPanelEscapeRequested)) { _ in
+            handleEscape()
+        }
         .onChange(of: store.searchFocusRequestID) { _, _ in
             focusSearchField()
         }
@@ -1547,7 +1550,10 @@ struct KidoXForegroundLayer: View {
         }
     }
 
-    private func closeFolder(resetsFolderDragState: Bool = true) {
+    private func closeFolder(
+        resetsFolderDragState: Bool = true,
+        focusSearchAfterClose: Bool = false
+    ) {
         withAnimation(Self.folderMorphAnimation) {
             if resetsFolderDragState {
                 resetFolderDragState()
@@ -1559,6 +1565,9 @@ struct KidoXForegroundLayer: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.folderMorphDuration + 0.02) {
             guard !folderOverlayIsExpanded else { return }
             store.openFolderID = nil
+            if focusSearchAfterClose {
+                focusSearchField()
+            }
         }
     }
 
@@ -1571,7 +1580,7 @@ struct KidoXForegroundLayer: View {
             return
         }
         if store.openFolderID != nil {
-            closeFolder()
+            closeFolder(focusSearchAfterClose: true)
             return
         }
         if isSearching {
@@ -2240,7 +2249,14 @@ struct KidoXForegroundLayer: View {
                     uninstallAction: canUninstall(item) ? {
                         confirmUninstall(item)
                     } : nil,
-                    renameAction: nil,
+                    renameAction: { name in
+                        guard isPro else {
+                            onOpenLicenseSettings()
+                            return
+                        }
+                        store.renameItem(item.id, to: name)
+                    },
+                    renameUnavailableAction: onOpenLicenseSettings,
                     ungroupAction: nil
                 )
                 .opacity(isPlaceholder || item.id == uninstallCompletionAnimation?.item.id || item.id == gridCompactionAnimationRequest?.removedItemID ? 0 : 1)

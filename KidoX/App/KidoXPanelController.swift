@@ -3,6 +3,10 @@ import Carbon
 import QuartzCore
 import SwiftUI
 
+extension Notification.Name {
+    static let kidoXPanelEscapeRequested = Notification.Name("KidoXPanelEscapeRequested")
+}
+
 @MainActor
 final class KidoXPanelController {
     static let showMenuBarStorageKey = "KidoX.showMenuBarInLaunchPanel"
@@ -623,6 +627,20 @@ final class KidoXPanelController {
 final class KidoXPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 53, !isEditingText {
+            NotificationCenter.default.post(name: .kidoXPanelEscapeRequested, object: self)
+            return
+        }
+
+        super.sendEvent(event)
+    }
+
+    private var isEditingText: Bool {
+        guard let textView = firstResponder as? NSTextView else { return false }
+        return textView.delegate != nil
+    }
 
     // Pre-configure the shared field editor so its first use never flashes the
     // default opaque NSTextView background at the search input. The cell's
