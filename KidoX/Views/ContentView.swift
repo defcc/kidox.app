@@ -648,6 +648,7 @@ struct KidoXForegroundLayer: View {
         .onChange(of: store.searchQuery) { oldValue, newValue in
             let wasSearching = !oldValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             let isSearchingNow = !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            closeFolderForSearchInputIfNeeded(isSearchingNow: isSearchingNow)
             if !wasSearching, isSearchingNow {
                 // 进入搜索：记住当前页
                 pageBeforeSearch = currentPage
@@ -1569,6 +1570,11 @@ struct KidoXForegroundLayer: View {
                 focusSearchField()
             }
         }
+    }
+
+    private func closeFolderForSearchInputIfNeeded(isSearchingNow: Bool) {
+        guard isSearchingNow, store.openFolderID != nil, folderOverlayIsExpanded else { return }
+        closeFolder()
     }
 
     // ESC 三层语义：folder 优先关 folder，其次清搜索，最后才 dismiss panel。
