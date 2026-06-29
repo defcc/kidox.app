@@ -257,7 +257,7 @@ private struct GeneralPane: View {
                 LabeledContent {
                     Picker("", selection: $appLanguageRaw) {
                         ForEach(KidoXLanguage.allCases) { language in
-                            Text(language.localizedTitle).tag(language.rawValue)
+                            Text(language.localizedTitle(languageRawValue: appLanguageRaw)).tag(language.rawValue)
                         }
                     }
                     .labelsHidden()

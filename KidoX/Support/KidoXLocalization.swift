@@ -13,13 +13,33 @@ enum KidoXLanguage: String, CaseIterable, Identifiable {
     var lprojIdentifier: String? {
         switch self {
         case .system: nil
-        case .english: nil
+        case .english: "en"
         case .simplifiedChinese: "zh-Hans"
         case .japanese: "ja"
         }
     }
 
     var localizedTitle: String {
+        localizedTitle(languageRawValue: nil)
+    }
+
+    func localizedTitle(languageRawValue: String?) -> String {
+        if self == .system {
+            return KidoXL10n.string(.languageSystem, languageRawValue: languageRawValue)
+        }
+
+        let nativeTitle = nativeLocalizedTitle
+        let selectedLanguage = Self.displayLanguage(from: languageRawValue)
+        let selectedTitle = title(in: selectedLanguage)
+
+        if nativeTitle == selectedTitle {
+            return nativeTitle
+        }
+
+        return "\(nativeTitle) (\(selectedTitle))"
+    }
+
+    private var nativeLocalizedTitle: String {
         switch self {
         case .system:
             KidoXL10n.string(.languageSystem)
@@ -32,8 +52,42 @@ enum KidoXLanguage: String, CaseIterable, Identifiable {
         }
     }
 
+    private func title(in language: KidoXLanguage) -> String {
+        return switch (self, language) {
+        case (.english, .simplifiedChinese): "英语"
+        case (.english, .japanese): "英語"
+        case (.simplifiedChinese, .english): "Simplified Chinese"
+        case (.simplifiedChinese, .japanese): "簡体字中国語"
+        case (.japanese, .english): "Japanese"
+        case (.japanese, .simplifiedChinese): "日语"
+        default: nativeLocalizedTitle
+        }
+    }
+
     static func selected(from rawValue: String) -> Self {
         Self(rawValue: rawValue) ?? .system
+    }
+
+    private static func displayLanguage(from rawValue: String?) -> Self {
+        let selected = Self.selected(
+            from: rawValue ?? UserDefaults.standard.string(forKey: storageKey) ?? Self.system.rawValue
+        )
+        return selected == .system ? preferredSystemLanguage : selected
+    }
+
+    private static var preferredSystemLanguage: Self {
+        for identifier in Bundle.main.preferredLocalizations + Locale.preferredLanguages {
+            if identifier == "ja" || identifier.hasPrefix("ja-") {
+                return .japanese
+            }
+            if identifier == "zh-Hans" || identifier.hasPrefix("zh-Hans-") || identifier == "zh-CN" || identifier.hasPrefix("zh-CN-") {
+                return .simplifiedChinese
+            }
+            if identifier == "en" || identifier.hasPrefix("en-") {
+                return .english
+            }
+        }
+        return .english
     }
 }
 
@@ -112,15 +166,23 @@ enum KidoXL10n {
     }
 
     private static func localizedString(_ key: String, languageRawValue: String?) -> String {
-        bundle(languageRawValue: languageRawValue).localizedString(forKey: key, value: key, table: nil)
+        let selected = selectedLanguage(languageRawValue: languageRawValue)
+        if selected == .english {
+            return key
+        }
+
+        return bundle(language: selected).localizedString(forKey: key, value: key, table: nil)
     }
 
-    private static func bundle(languageRawValue: String?) -> Bundle {
-        let selected = KidoXLanguage.selected(
+    private static func selectedLanguage(languageRawValue: String?) -> KidoXLanguage {
+        KidoXLanguage.selected(
             from: languageRawValue ?? UserDefaults.standard.string(forKey: KidoXLanguage.storageKey) ?? KidoXLanguage.system.rawValue
         )
+    }
+
+    private static func bundle(language: KidoXLanguage) -> Bundle {
         guard
-            let lprojIdentifier = selected.lprojIdentifier,
+            let lprojIdentifier = language.lprojIdentifier,
             let path = Bundle.main.path(forResource: lprojIdentifier, ofType: "lproj"),
             let bundle = Bundle(path: path)
         else {
