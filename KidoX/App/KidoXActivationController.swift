@@ -6,6 +6,7 @@ import OSLog
 
 enum KidoXActivationPreferenceKeys {
     static let f4HotKeyEnabled = "KidoX.f4HotKey.enabled"
+    static let globalTrackpadGestureEnabled = "KidoX.globalTrackpadGesture.enabled"
     static let debugLoggingEnabled = "KidoX.debugLogging.enabled"
     static let hotCorner = "KidoX.hotCorner"
 }
@@ -74,20 +75,26 @@ final class KidoXActivationController: @unchecked Sendable {
     private static let systemDefinedKeyDownState = 0xA
 
     private let onShow: @MainActor () -> Void
+    private let onHide: @MainActor () -> Void
     private var defaultsObserver: NSObjectProtocol?
     private var applicationDidBecomeActiveObserver: NSObjectProtocol?
     private var f4HotKey: EventHotKeyRef?
     private var f4EventHandler: EventHandlerRef?
     private var f4EventTap: CFMachPort?
     private var f4EventTapRunLoopSource: CFRunLoopSource?
+    private var globalTrackpadGestureMonitor: KidoXGlobalTrackpadGestureMonitor?
     private var globalMouseMonitor: Any?
     private var localMouseMonitor: Any?
     private var activeHotCorner: KidoXHotCorner = .none
     private var pointerIsInsideHotCorner = false
     private var lastActivationDate = Date.distantPast
 
-    init(onShow: @escaping @MainActor () -> Void) {
+    init(
+        onShow: @escaping @MainActor () -> Void,
+        onHide: @escaping @MainActor () -> Void = {}
+    ) {
         self.onShow = onShow
+        self.onHide = onHide
         registerDefaultPreferences()
     }
 
@@ -102,6 +109,7 @@ final class KidoXActivationController: @unchecked Sendable {
             queue: .main
         ) { [weak self] _ in
             self?.configureF4HotKeyFromDefaults()
+            self?.configureGlobalTrackpadGestureFromDefaults()
             self?.configureHotCornerFromDefaults()
         }
 
@@ -118,6 +126,7 @@ final class KidoXActivationController: @unchecked Sendable {
         }
 
         configureF4HotKeyFromDefaults()
+        configureGlobalTrackpadGestureFromDefaults()
         configureHotCornerFromDefaults()
     }
 
@@ -132,12 +141,14 @@ final class KidoXActivationController: @unchecked Sendable {
         }
         uninstallF4HotKey()
         uninstallF4EventTap()
+        uninstallGlobalTrackpadGestureMonitor()
         uninstallHotCornerMonitor()
     }
 
     private func registerDefaultPreferences() {
         UserDefaults.standard.register(defaults: [
             KidoXActivationPreferenceKeys.f4HotKeyEnabled: true,
+            KidoXActivationPreferenceKeys.globalTrackpadGestureEnabled: true,
             KidoXActivationPreferenceKeys.debugLoggingEnabled: false,
             KidoXActivationPreferenceKeys.hotCorner: KidoXHotCorner.none.rawValue
         ])
@@ -271,6 +282,29 @@ final class KidoXActivationController: @unchecked Sendable {
             f4EventTap = nil
             Self.logger.info("Uninstalled F4 event tap")
         }
+    }
+
+    private func configureGlobalTrackpadGestureFromDefaults() {
+        let enabled = UserDefaults.standard.bool(forKey: KidoXActivationPreferenceKeys.globalTrackpadGestureEnabled)
+        let configuration = KidoXGlobalTrackpadGestureMonitor.Configuration(isEnabled: enabled)
+
+        if globalTrackpadGestureMonitor == nil {
+            globalTrackpadGestureMonitor = KidoXGlobalTrackpadGestureMonitor(configuration: configuration) { [weak self] action in
+                switch action {
+                case .pinchIn:
+                    self?.showLaunchPanelIfNeeded()
+                case .spreadOut:
+                    self?.hideLaunchPanelIfNeeded()
+                }
+            }
+        }
+
+        globalTrackpadGestureMonitor?.update(configuration: configuration)
+    }
+
+    private func uninstallGlobalTrackpadGestureMonitor() {
+        globalTrackpadGestureMonitor?.stop()
+        globalTrackpadGestureMonitor = nil
     }
 
     static var isAccessibilityAccessGranted: Bool {
@@ -450,5 +484,13 @@ final class KidoXActivationController: @unchecked Sendable {
         guard now.timeIntervalSince(lastActivationDate) > 0.35 else { return }
         lastActivationDate = now
         onShow()
+    }
+
+    @MainActor
+    private func hideLaunchPanelIfNeeded() {
+        let now = Date()
+        guard now.timeIntervalSince(lastActivationDate) > 0.35 else { return }
+        lastActivationDate = now
+        onHide()
     }
 }

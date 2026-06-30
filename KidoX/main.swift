@@ -9,9 +9,14 @@ final class KidoXAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var panelController = KidoXPanelController { [weak self] pane in
         self?.openSettings(pane: pane)
     }
-    private lazy var activationController = KidoXActivationController { [weak self] in
-        self?.panelController.show()
-    }
+    private lazy var activationController = KidoXActivationController(
+        onShow: { [weak self] in
+            self?.panelController.show()
+        },
+        onHide: { [weak self] in
+            self?.panelController.hide()
+        }
+    )
     private var statusItemController: StatusItemController?
     private var licenseValidationTimer: Timer?
 
