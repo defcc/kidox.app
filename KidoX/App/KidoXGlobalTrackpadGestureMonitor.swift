@@ -39,9 +39,16 @@ private struct KidoXTrackpadSample {
     let point: CGPoint
 }
 
-enum KidoXGlobalTrackpadGestureAction {
+enum KidoXGlobalTrackpadGestureDirection: Equatable {
     case pinchIn
     case spreadOut
+}
+
+enum KidoXGlobalTrackpadGestureEvent {
+    case began(KidoXGlobalTrackpadGestureDirection)
+    case changed(direction: KidoXGlobalTrackpadGestureDirection, progress: CGFloat, opennessDelta: CGFloat)
+    case committed(KidoXGlobalTrackpadGestureDirection)
+    case cancelled(KidoXGlobalTrackpadGestureDirection)
 }
 
 private typealias KidoXMTFrameCallback = @convention(c) (
@@ -60,14 +67,15 @@ final class KidoXGlobalTrackpadGestureMonitor: @unchecked Sendable {
     struct Configuration: Equatable {
         var isEnabled = true
         var fingerCount = 4
-        var pinchInTriggerScaleRatio: CGFloat = 0.88
-        var spreadOutTriggerScaleRatio: CGFloat = 1.12
+        var pinchInTriggerScaleRatio: CGFloat = 0.80
+        var spreadOutTriggerScaleRatio: CGFloat = 1.20
+        var minimumTrackingFingerCount = 2
         var minimumParticipatingFingerCount = 3
-        var requiredStableDuration: TimeInterval = 0.025
-        var requiredConsecutiveMatches = 2
-        var cooldownDuration: TimeInterval = 0.65
+        var requiredStableDuration: TimeInterval = 0.008
         var minimumBaselineScale: CGFloat = 0.10
         var maximumCentroidDriftRatio: CGFloat = 0.56
+        var movementDeadZone: CGFloat = 0.006
+        var scaleSmoothingFactor: CGFloat = 0.88
     }
 
     private struct RegisteredDevice {
@@ -83,7 +91,8 @@ final class KidoXGlobalTrackpadGestureMonitor: @unchecked Sendable {
 
     nonisolated(unsafe) private static var activeMonitor: KidoXGlobalTrackpadGestureMonitor?
 
-    private let onTrigger: @MainActor (KidoXGlobalTrackpadGestureAction) -> Void
+    private let onGestureEvent: @MainActor (KidoXGlobalTrackpadGestureEvent) -> Void
+    private let gestureEventDispatcher: KidoXTrackpadGestureEventDispatcher
     private let lock = NSLock()
     private var configuration: Configuration
     private var support: KidoXMultitouchSupport?
@@ -95,10 +104,11 @@ final class KidoXGlobalTrackpadGestureMonitor: @unchecked Sendable {
 
     init(
         configuration: Configuration = Configuration(),
-        onTrigger: @escaping @MainActor (KidoXGlobalTrackpadGestureAction) -> Void
+        onGestureEvent: @escaping @MainActor (KidoXGlobalTrackpadGestureEvent) -> Void
     ) {
         self.configuration = configuration
-        self.onTrigger = onTrigger
+        self.onGestureEvent = onGestureEvent
+        self.gestureEventDispatcher = KidoXTrackpadGestureEventDispatcher(onGestureEvent: onGestureEvent)
     }
 
     deinit {
@@ -244,21 +254,19 @@ final class KidoXGlobalTrackpadGestureMonitor: @unchecked Sendable {
         }
 
         let now = ProcessInfo.processInfo.systemUptime
-        var triggeredAction: KidoXGlobalTrackpadGestureAction?
+        var event: KidoXGlobalTrackpadGestureEvent?
 
         lock.lock()
         if isListening {
             let deviceID = deviceIDsByPointer[UInt(bitPattern: device)] ?? UInt64(UInt(bitPattern: device))
             var recognizer = recognizers[deviceID] ?? KidoXFourFingerPinchRecognizer(configuration: configuration)
-            triggeredAction = recognizer.consume(samples: samples, at: now)
+            event = recognizer.consume(samples: samples, at: now)
             recognizers[deviceID] = recognizer
         }
         lock.unlock()
 
-        guard let triggeredAction else { return }
-        Task { @MainActor [onTrigger] in
-            onTrigger(triggeredAction)
-        }
+        guard let event else { return }
+        gestureEventDispatcher.enqueue(event)
     }
 
     private func enumerateTrackpadDevices(using support: KidoXMultitouchSupport) -> [RegisteredDevice] {
@@ -331,6 +339,83 @@ final class KidoXGlobalTrackpadGestureMonitor: @unchecked Sendable {
         3, // make touch
         4  // touching
     ]
+}
+
+private final class KidoXTrackpadGestureEventDispatcher: @unchecked Sendable {
+    private let onGestureEvent: @MainActor (KidoXGlobalTrackpadGestureEvent) -> Void
+    private let lock = NSLock()
+    private var queuedEvents: [KidoXGlobalTrackpadGestureEvent] = []
+    private var pendingChangedEvent: KidoXGlobalTrackpadGestureEvent?
+    private var isFlushScheduled = false
+
+    init(onGestureEvent: @escaping @MainActor (KidoXGlobalTrackpadGestureEvent) -> Void) {
+        self.onGestureEvent = onGestureEvent
+    }
+
+    func enqueue(_ event: KidoXGlobalTrackpadGestureEvent) {
+        var shouldScheduleFlush = false
+
+        lock.lock()
+        switch event {
+        case .changed:
+            pendingChangedEvent = event
+        case .began:
+            pendingChangedEvent = nil
+            queuedEvents.append(event)
+        case .committed, .cancelled:
+            if let pendingChangedEvent,
+               Self.direction(of: pendingChangedEvent) == Self.direction(of: event) {
+                queuedEvents.append(pendingChangedEvent)
+            }
+            self.pendingChangedEvent = nil
+            queuedEvents.append(event)
+        }
+
+        if !isFlushScheduled {
+            isFlushScheduled = true
+            shouldScheduleFlush = true
+        }
+        lock.unlock()
+
+        if shouldScheduleFlush {
+            DispatchQueue.main.async { [weak self] in
+                self?.flush()
+            }
+        }
+    }
+
+    private func flush() {
+        let events: [KidoXGlobalTrackpadGestureEvent]
+
+        lock.lock()
+        var coalescedEvents = queuedEvents
+        queuedEvents.removeAll(keepingCapacity: true)
+        if let pendingChangedEvent {
+            coalescedEvents.append(pendingChangedEvent)
+            self.pendingChangedEvent = nil
+        }
+        isFlushScheduled = false
+        events = coalescedEvents
+        lock.unlock()
+
+        guard !events.isEmpty else { return }
+        Task { @MainActor [onGestureEvent, events] in
+            for event in events {
+                onGestureEvent(event)
+            }
+        }
+    }
+
+    private static func direction(of event: KidoXGlobalTrackpadGestureEvent) -> KidoXGlobalTrackpadGestureDirection {
+        switch event {
+        case let .began(direction),
+             let .committed(direction),
+             let .cancelled(direction):
+            return direction
+        case let .changed(direction, _, _):
+            return direction
+        }
+    }
 }
 
 private final class KidoXMultitouchSupport {
@@ -467,34 +552,31 @@ private struct KidoXFourFingerPinchRecognizer {
     private let configuration: KidoXGlobalTrackpadGestureMonitor.Configuration
     private var trackedIDs: Set<CInt> = []
     private var startedAt: TimeInterval = 0
-    private var cooldownUntil: TimeInterval = 0
     private var baselineScale: CGFloat = 0
     private var baselineCentroid: CGPoint = .zero
     private var baselineRadii: [CInt: CGFloat] = [:]
     private var filteredScale: CGFloat = 0
-    private var consecutiveMatches = 0
-    private var pendingAction: KidoXGlobalTrackpadGestureAction?
-    private var didTriggerCurrentContact = false
+    private var activeDirection: KidoXGlobalTrackpadGestureDirection?
+    private var lastProgress: CGFloat = 0
 
     init(configuration: KidoXGlobalTrackpadGestureMonitor.Configuration) {
         self.configuration = configuration
     }
 
-    mutating func consume(samples: [KidoXTrackpadSample], at time: TimeInterval) -> KidoXGlobalTrackpadGestureAction? {
-        guard time >= cooldownUntil else { return nil }
+    mutating func consume(samples: [KidoXTrackpadSample], at time: TimeInterval) -> KidoXGlobalTrackpadGestureEvent? {
         guard samples.count == configuration.fingerCount else {
+            let event = endEventIfNeeded()
             resetContact()
-            return nil
+            return event
         }
 
         let sortedSamples = samples.sorted { $0.id < $1.id }
         let ids = Set(sortedSamples.map(\.id))
         if ids != trackedIDs {
+            let event = endEventIfNeeded()
             beginContact(with: sortedSamples, at: time)
-            return nil
+            return event
         }
-
-        guard !didTriggerCurrentContact else { return nil }
 
         let currentScale = scale(for: sortedSamples)
         guard currentScale >= configuration.minimumBaselineScale else {
@@ -507,7 +589,8 @@ private struct KidoXFourFingerPinchRecognizer {
             return nil
         }
 
-        filteredScale = (filteredScale * 0.45) + (currentScale * 0.55)
+        let smoothing = min(max(configuration.scaleSmoothingFactor, 0), 1)
+        filteredScale = (filteredScale * (1 - smoothing)) + (currentScale * smoothing)
         let scaleRatio = filteredScale / max(baselineScale, 0.0001)
         let drift = distance(from: baselineCentroid, to: currentCentroid)
         let maximumDrift = max(baselineScale * configuration.maximumCentroidDriftRatio, 0.035)
@@ -521,28 +604,55 @@ private struct KidoXFourFingerPinchRecognizer {
             return partial + (entry.value / max(baselineRadius, 0.0001) >= 1.015 ? 1 : 0)
         }
 
-        let action: KidoXGlobalTrackpadGestureAction?
-        if scaleRatio <= configuration.pinchInTriggerScaleRatio,
+        let pinchInProgress = clampedProgress(
+            (1 - scaleRatio) / max(1 - configuration.pinchInTriggerScaleRatio, 0.0001)
+        )
+        let spreadOutProgress = clampedProgress(
+            (scaleRatio - 1) / max(configuration.spreadOutTriggerScaleRatio - 1, 0.0001)
+        )
+        let opennessDelta = scaleRatio <= 1 ? pinchInProgress : -spreadOutProgress
+
+        let candidate: (
+            direction: KidoXGlobalTrackpadGestureDirection,
+            progress: CGFloat,
+            opennessDelta: CGFloat,
+            participatingFingerCount: Int
+        )?
+        if pinchInProgress >= spreadOutProgress,
            drift <= maximumDrift,
-           inwardCount >= configuration.minimumParticipatingFingerCount {
-            action = .pinchIn
-        } else if scaleRatio >= configuration.spreadOutTriggerScaleRatio,
+           inwardCount >= requiredTrackingFingerCount(for: .pinchIn),
+           pinchInProgress > configuration.movementDeadZone {
+            candidate = (.pinchIn, pinchInProgress, opennessDelta, inwardCount)
+        } else if spreadOutProgress > pinchInProgress,
                   drift <= maximumDrift,
-                  outwardCount >= configuration.minimumParticipatingFingerCount {
-            action = .spreadOut
+                  outwardCount >= requiredTrackingFingerCount(for: .spreadOut),
+                  spreadOutProgress > configuration.movementDeadZone {
+            candidate = (.spreadOut, spreadOutProgress, opennessDelta, outwardCount)
         } else {
-            action = nil
+            candidate = nil
         }
 
-        updateConsecutiveMatches(for: action)
+        guard let candidate else {
+            if let activeDirection {
+                lastProgress = max(0, abs(opennessDelta))
+                return .changed(direction: activeDirection, progress: lastProgress, opennessDelta: opennessDelta)
+            }
+            return nil
+        }
 
-        guard let pendingAction,
-              consecutiveMatches >= configuration.requiredConsecutiveMatches
-        else { return nil }
+        if activeDirection != candidate.direction {
+            activeDirection = candidate.direction
+            lastProgress = candidate.progress
+            return .began(candidate.direction)
+        }
 
-        didTriggerCurrentContact = true
-        cooldownUntil = time + configuration.cooldownDuration
-        return pendingAction
+        lastProgress = candidate.progress
+
+        return .changed(
+            direction: candidate.direction,
+            progress: candidate.progress,
+            opennessDelta: candidate.opennessDelta
+        )
     }
 
     private mutating func beginContact(with samples: [KidoXTrackpadSample], at time: TimeInterval) {
@@ -554,9 +664,8 @@ private struct KidoXFourFingerPinchRecognizer {
         baselineCentroid = initialCentroid
         baselineRadii = radii(for: samples, around: initialCentroid)
         filteredScale = initialScale
-        consecutiveMatches = 0
-        pendingAction = nil
-        didTriggerCurrentContact = false
+        activeDirection = nil
+        lastProgress = 0
     }
 
     private mutating func resetContact() {
@@ -566,24 +675,24 @@ private struct KidoXFourFingerPinchRecognizer {
         baselineCentroid = .zero
         baselineRadii = [:]
         filteredScale = 0
-        consecutiveMatches = 0
-        pendingAction = nil
-        didTriggerCurrentContact = false
+        activeDirection = nil
+        lastProgress = 0
     }
 
-    private mutating func updateConsecutiveMatches(for action: KidoXGlobalTrackpadGestureAction?) {
-        guard let action else {
-            pendingAction = nil
-            consecutiveMatches = 0
-            return
-        }
+    private func endEventIfNeeded() -> KidoXGlobalTrackpadGestureEvent? {
+        guard let activeDirection else { return nil }
+        return .committed(activeDirection)
+    }
 
-        if pendingAction == action {
-            consecutiveMatches += 1
-        } else {
-            pendingAction = action
-            consecutiveMatches = 1
+    private func clampedProgress(_ progress: CGFloat) -> CGFloat {
+        min(max(progress, 0), 1)
+    }
+
+    private func requiredTrackingFingerCount(for direction: KidoXGlobalTrackpadGestureDirection) -> Int {
+        if activeDirection == direction {
+            return max(1, min(configuration.minimumTrackingFingerCount, configuration.fingerCount))
         }
+        return max(1, min(configuration.minimumTrackingFingerCount, configuration.minimumParticipatingFingerCount))
     }
 
     private func scale(for samples: [KidoXTrackpadSample]) -> CGFloat {

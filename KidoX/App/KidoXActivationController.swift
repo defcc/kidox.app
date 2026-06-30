@@ -76,6 +76,7 @@ final class KidoXActivationController: @unchecked Sendable {
 
     private let onShow: @MainActor () -> Void
     private let onHide: @MainActor () -> Void
+    private let onTrackpadGestureEvent: @MainActor (KidoXGlobalTrackpadGestureEvent) -> Void
     private var defaultsObserver: NSObjectProtocol?
     private var applicationDidBecomeActiveObserver: NSObjectProtocol?
     private var f4HotKey: EventHotKeyRef?
@@ -91,10 +92,12 @@ final class KidoXActivationController: @unchecked Sendable {
 
     init(
         onShow: @escaping @MainActor () -> Void,
-        onHide: @escaping @MainActor () -> Void = {}
+        onHide: @escaping @MainActor () -> Void = {},
+        onTrackpadGestureEvent: @escaping @MainActor (KidoXGlobalTrackpadGestureEvent) -> Void = { _ in }
     ) {
         self.onShow = onShow
         self.onHide = onHide
+        self.onTrackpadGestureEvent = onTrackpadGestureEvent
         registerDefaultPreferences()
     }
 
@@ -289,13 +292,8 @@ final class KidoXActivationController: @unchecked Sendable {
         let configuration = KidoXGlobalTrackpadGestureMonitor.Configuration(isEnabled: enabled)
 
         if globalTrackpadGestureMonitor == nil {
-            globalTrackpadGestureMonitor = KidoXGlobalTrackpadGestureMonitor(configuration: configuration) { [weak self] action in
-                switch action {
-                case .pinchIn:
-                    self?.showLaunchPanelIfNeeded()
-                case .spreadOut:
-                    self?.hideLaunchPanelIfNeeded()
-                }
+            globalTrackpadGestureMonitor = KidoXGlobalTrackpadGestureMonitor(configuration: configuration) { [weak self] event in
+                self?.handleGlobalTrackpadGestureEvent(event)
             }
         }
 
@@ -492,5 +490,10 @@ final class KidoXActivationController: @unchecked Sendable {
         guard now.timeIntervalSince(lastActivationDate) > 0.35 else { return }
         lastActivationDate = now
         onHide()
+    }
+
+    @MainActor
+    private func handleGlobalTrackpadGestureEvent(_ event: KidoXGlobalTrackpadGestureEvent) {
+        onTrackpadGestureEvent(event)
     }
 }

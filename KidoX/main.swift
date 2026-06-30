@@ -15,6 +15,9 @@ final class KidoXAppDelegate: NSObject, NSApplicationDelegate {
         },
         onHide: { [weak self] in
             self?.panelController.hide()
+        },
+        onTrackpadGestureEvent: { [weak self] event in
+            self?.handleTrackpadGestureEvent(event)
         }
     )
     private var statusItemController: StatusItemController?
@@ -62,6 +65,19 @@ final class KidoXAppDelegate: NSObject, NSApplicationDelegate {
 
     func openSettings(pane: SettingsPane? = nil) {
         settingsWindowController.show(pane: pane)
+    }
+
+    private func handleTrackpadGestureEvent(_ event: KidoXGlobalTrackpadGestureEvent) {
+        switch event {
+        case let .began(direction):
+            panelController.beginInteractiveTrackpadGesture(direction: direction)
+        case let .changed(_, _, opennessDelta):
+            panelController.updateInteractiveTrackpadGesture(opennessDelta: opennessDelta)
+        case let .committed(direction):
+            panelController.finishInteractiveTrackpadGesture(direction: direction)
+        case .cancelled:
+            panelController.cancelInteractiveTrackpadGesture()
+        }
     }
 
     private func installMainMenu() {
