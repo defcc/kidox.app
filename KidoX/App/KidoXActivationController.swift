@@ -151,7 +151,7 @@ final class KidoXActivationController: @unchecked Sendable {
     private func registerDefaultPreferences() {
         UserDefaults.standard.register(defaults: [
             KidoXActivationPreferenceKeys.f4HotKeyEnabled: true,
-            KidoXActivationPreferenceKeys.globalTrackpadGestureEnabled: true,
+            KidoXActivationPreferenceKeys.globalTrackpadGestureEnabled: false,
             KidoXActivationPreferenceKeys.debugLoggingEnabled: false,
             KidoXActivationPreferenceKeys.hotCorner: KidoXHotCorner.none.rawValue
         ])

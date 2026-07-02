@@ -245,7 +245,7 @@ private struct GeneralPane: View {
     @AppStorage(KidoXActivationPreferenceKeys.f4HotKeyEnabled)
     private var f4HotKeyEnabled = true
     @AppStorage(KidoXActivationPreferenceKeys.globalTrackpadGestureEnabled)
-    private var globalTrackpadGestureEnabled = true
+    private var globalTrackpadGestureEnabled = false
     @AppStorage(KidoXActivationPreferenceKeys.hotCorner)
     private var hotCorner = KidoXHotCorner.none.rawValue
 
