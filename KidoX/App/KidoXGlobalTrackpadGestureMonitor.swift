@@ -73,8 +73,14 @@ final class KidoXGlobalTrackpadGestureMonitor: @unchecked Sendable {
         var minimumParticipatingFingerCount = 3
         var requiredStableDuration: TimeInterval = 0.008
         var minimumBaselineScale: CGFloat = 0.10
-        var maximumCentroidDriftRatio: CGFloat = 0.56
-        var movementDeadZone: CGFloat = 0.006
+        var maximumCentroidDriftRatio: CGFloat = 0.26
+        var movementDeadZone: CGFloat = 0.014
+        var activationProgressThreshold: CGFloat = 0.055
+        var maximumActivationTranslationRatio: CGFloat = 1.65
+        var minimumActivationRadialMotionRatio: CGFloat = 0.028
+        var maximumActivationTangentialRatio: CGFloat = 1.35
+        var swipeLockoutTranslationRatio: CGFloat = 0.070
+        var swipeLockoutTranslationDominanceRatio: CGFloat = 2.25
         var scaleSmoothingFactor: CGFloat = 0.88
     }
 
@@ -555,8 +561,10 @@ private struct KidoXFourFingerPinchRecognizer {
     private var baselineScale: CGFloat = 0
     private var baselineCentroid: CGPoint = .zero
     private var baselineRadii: [CInt: CGFloat] = [:]
+    private var baselinePoints: [CInt: CGPoint] = [:]
     private var filteredScale: CGFloat = 0
     private var activeDirection: KidoXGlobalTrackpadGestureDirection?
+    private var isSwipeLockedOut = false
     private var lastProgress: CGFloat = 0
 
     init(configuration: KidoXGlobalTrackpadGestureMonitor.Configuration) {
@@ -589,11 +597,12 @@ private struct KidoXFourFingerPinchRecognizer {
             return nil
         }
 
+        let radialEvidence = radialEvidence(for: sortedSamples, currentCentroid: currentCentroid)
         let smoothing = min(max(configuration.scaleSmoothingFactor, 0), 1)
         filteredScale = (filteredScale * (1 - smoothing)) + (currentScale * smoothing)
         let scaleRatio = filteredScale / max(baselineScale, 0.0001)
         let drift = distance(from: baselineCentroid, to: currentCentroid)
-        let maximumDrift = max(baselineScale * configuration.maximumCentroidDriftRatio, 0.035)
+        let maximumDrift = max(baselineScale * configuration.maximumCentroidDriftRatio, 0.020)
         let currentRadii = radii(for: sortedSamples, around: currentCentroid)
         let inwardCount = currentRadii.reduce(0) { partial, entry in
             guard let baselineRadius = baselineRadii[entry.key] else { return partial }
@@ -612,6 +621,17 @@ private struct KidoXFourFingerPinchRecognizer {
         )
         let opennessDelta = scaleRatio <= 1 ? pinchInProgress : -spreadOutProgress
 
+        guard !isSwipeLockedOut else { return nil }
+
+        if activeDirection == nil,
+           shouldLockOutAsSwipe(
+               drift: drift,
+               radialEvidence: radialEvidence
+           ) {
+            isSwipeLockedOut = true
+            return nil
+        }
+
         let candidate: (
             direction: KidoXGlobalTrackpadGestureDirection,
             progress: CGFloat,
@@ -619,14 +639,30 @@ private struct KidoXFourFingerPinchRecognizer {
             participatingFingerCount: Int
         )?
         if pinchInProgress >= spreadOutProgress,
-           drift <= maximumDrift,
+           isPinchLikeMotion(
+               direction: .pinchIn,
+               progress: pinchInProgress,
+               drift: drift,
+               maximumDrift: maximumDrift,
+               radialProjection: radialEvidence.inwardProjection,
+               tangentialMotion: radialEvidence.tangentialMotion
+           ),
+           radialEvidence.inwardCount >= requiredTrackingFingerCount(for: .pinchIn),
            inwardCount >= requiredTrackingFingerCount(for: .pinchIn),
-           pinchInProgress > configuration.movementDeadZone {
+           pinchInProgress > requiredProgressThreshold(for: .pinchIn) {
             candidate = (.pinchIn, pinchInProgress, opennessDelta, inwardCount)
         } else if spreadOutProgress > pinchInProgress,
-                  drift <= maximumDrift,
+                  isPinchLikeMotion(
+                      direction: .spreadOut,
+                      progress: spreadOutProgress,
+                      drift: drift,
+                      maximumDrift: maximumDrift,
+                      radialProjection: radialEvidence.outwardProjection,
+                      tangentialMotion: radialEvidence.tangentialMotion
+                  ),
+                  radialEvidence.outwardCount >= requiredTrackingFingerCount(for: .spreadOut),
                   outwardCount >= requiredTrackingFingerCount(for: .spreadOut),
-                  spreadOutProgress > configuration.movementDeadZone {
+                  spreadOutProgress > requiredProgressThreshold(for: .spreadOut) {
             candidate = (.spreadOut, spreadOutProgress, opennessDelta, outwardCount)
         } else {
             candidate = nil
@@ -663,8 +699,10 @@ private struct KidoXFourFingerPinchRecognizer {
         baselineScale = initialScale
         baselineCentroid = initialCentroid
         baselineRadii = radii(for: samples, around: initialCentroid)
+        baselinePoints = Dictionary(uniqueKeysWithValues: samples.map { ($0.id, $0.point) })
         filteredScale = initialScale
         activeDirection = nil
+        isSwipeLockedOut = false
         lastProgress = 0
     }
 
@@ -674,8 +712,10 @@ private struct KidoXFourFingerPinchRecognizer {
         baselineScale = 0
         baselineCentroid = .zero
         baselineRadii = [:]
+        baselinePoints = [:]
         filteredScale = 0
         activeDirection = nil
+        isSwipeLockedOut = false
         lastProgress = 0
     }
 
@@ -693,6 +733,108 @@ private struct KidoXFourFingerPinchRecognizer {
             return max(1, min(configuration.minimumTrackingFingerCount, configuration.fingerCount))
         }
         return max(1, min(configuration.minimumTrackingFingerCount, configuration.minimumParticipatingFingerCount))
+    }
+
+    private func requiredProgressThreshold(for direction: KidoXGlobalTrackpadGestureDirection) -> CGFloat {
+        activeDirection == direction
+            ? configuration.movementDeadZone
+            : configuration.activationProgressThreshold
+    }
+
+    private func isPinchLikeMotion(
+        direction: KidoXGlobalTrackpadGestureDirection,
+        progress: CGFloat,
+        drift: CGFloat,
+        maximumDrift: CGFloat,
+        radialProjection: CGFloat,
+        tangentialMotion: CGFloat
+    ) -> Bool {
+        guard drift <= maximumDrift else { return false }
+        guard activeDirection != nil else {
+            let translationLimit = max(0.014, radialProjection * configuration.maximumActivationTranslationRatio)
+            let minimumRadialProjection = baselineScale * configuration.minimumActivationRadialMotionRatio
+            let maximumTangentialMotion = max(minimumRadialProjection, radialProjection * configuration.maximumActivationTangentialRatio)
+            return progress >= configuration.activationProgressThreshold &&
+                drift <= translationLimit &&
+                radialProjection >= minimumRadialProjection &&
+                tangentialMotion <= maximumTangentialMotion
+        }
+        return activeDirection == direction || progress >= configuration.activationProgressThreshold
+    }
+
+    private func shouldLockOutAsSwipe(
+        drift: CGFloat,
+        radialEvidence: (
+            inwardCount: Int,
+            outwardCount: Int,
+            inwardProjection: CGFloat,
+            outwardProjection: CGFloat,
+            tangentialMotion: CGFloat
+        )
+    ) -> Bool {
+        let minimumSwipeTranslation = max(0.018, baselineScale * configuration.swipeLockoutTranslationRatio)
+        guard drift >= minimumSwipeTranslation else { return false }
+
+        let strongestRadialProjection = max(radialEvidence.inwardProjection, radialEvidence.outwardProjection)
+        let radialFloor = max(strongestRadialProjection, baselineScale * 0.006)
+        return drift >= radialFloor * configuration.swipeLockoutTranslationDominanceRatio
+    }
+
+    private func radialEvidence(
+        for samples: [KidoXTrackpadSample],
+        currentCentroid: CGPoint
+    ) -> (
+        inwardCount: Int,
+        outwardCount: Int,
+        inwardProjection: CGFloat,
+        outwardProjection: CGFloat,
+        tangentialMotion: CGFloat
+    ) {
+        let translation = CGPoint(
+            x: currentCentroid.x - baselineCentroid.x,
+            y: currentCentroid.y - baselineCentroid.y
+        )
+        let minimumProjection = baselineScale * 0.010
+
+        var inwardCount = 0
+        var outwardCount = 0
+        var inwardProjectionTotal: CGFloat = 0
+        var outwardProjectionTotal: CGFloat = 0
+        var tangentialTotal: CGFloat = 0
+
+        for sample in samples {
+            guard let baselinePoint = baselinePoints[sample.id] else { continue }
+            let radialVector = CGPoint(
+                x: baselinePoint.x - baselineCentroid.x,
+                y: baselinePoint.y - baselineCentroid.y
+            )
+            let radialLength = max(hypot(radialVector.x, radialVector.y), 0.0001)
+            let radialUnit = CGPoint(x: radialVector.x / radialLength, y: radialVector.y / radialLength)
+            let residual = CGPoint(
+                x: sample.point.x - baselinePoint.x - translation.x,
+                y: sample.point.y - baselinePoint.y - translation.y
+            )
+            let projection = (residual.x * radialUnit.x) + (residual.y * radialUnit.y)
+            let tangential = abs((residual.x * -radialUnit.y) + (residual.y * radialUnit.x))
+            tangentialTotal += tangential
+
+            if projection <= -minimumProjection {
+                inwardCount += 1
+                inwardProjectionTotal += -projection
+            } else if projection >= minimumProjection {
+                outwardCount += 1
+                outwardProjectionTotal += projection
+            }
+        }
+
+        let divisor = CGFloat(max(samples.count, 1))
+        return (
+            inwardCount,
+            outwardCount,
+            inwardProjectionTotal / divisor,
+            outwardProjectionTotal / divisor,
+            tangentialTotal / divisor
+        )
     }
 
     private func scale(for samples: [KidoXTrackpadSample]) -> CGFloat {
