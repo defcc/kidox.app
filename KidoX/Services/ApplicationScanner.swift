@@ -75,9 +75,9 @@ struct ApplicationScanner: Sendable {
         let info = bundle?.infoDictionary
         let localizedDisplayNames = localizedApplicationNames(bundle: bundle, info: info, fallbackURL: url)
         let localizedName = selectedLocalizedApplicationName(bundle: bundle, info: info, fallbackURL: url)
-            ?? localizedDisplayNames.first
             ?? info?["CFBundleDisplayName"] as? String
             ?? info?["CFBundleName"] as? String
+            ?? localizedDisplayNames.first
             ?? url.deletingPathExtension().lastPathComponent
 
         let bundleIdentifier = bundle?.bundleIdentifier
@@ -122,6 +122,7 @@ struct ApplicationScanner: Sendable {
 
         if selectedLanguage == .system {
             return keys.compactMap { bundle?.localizedInfoDictionary?[$0] as? String }.firstNonEmptyString
+                ?? localizedNameFromFileSystem(fallbackURL)
         }
 
         for identifier in selectedLanguage.bundleLocalizationIdentifiers {
@@ -133,7 +134,7 @@ struct ApplicationScanner: Sendable {
             }
         }
 
-        return localizedNameFromFileSystem(fallbackURL)
+        return nil
     }
 
     private static func localizedApplicationNames(
@@ -261,7 +262,7 @@ private extension KidoXLanguage {
         case .system:
             []
         case .english:
-            ["en", "English"]
+            ["en", "en_US", "en_GB", "en_AU", "English"]
         case .simplifiedChinese:
             ["zh-Hans", "zh_CN", "zh-Hans-CN", "zh"]
         case .japanese:
