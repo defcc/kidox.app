@@ -44,19 +44,15 @@ The four-finger gesture is optional and disabled by default. It uses a runtime-l
 
 ## Overview
 
-This repository contains the KidoX macOS app source code. It is published for transparency, security review, education, and community contributions.
+This repository contains the KidoX Community Edition macOS app source code. It is published for transparency, security review, education, and community contributions under the GNU Affero General Public License v3.0.
 
 The license-management backend, production release configuration, signing credentials, notarization credentials, and distribution infrastructure are not included in this repository.
 
-## Source Availability
+## Community Edition
 
-KidoX is source-available, not open-source.
+You may read the source code, study how the app works, audit it, modify it, build it, and redistribute it under the terms of the AGPL-3.0 license.
 
-You may read the source code, study how the app works, audit it, and build it locally for personal evaluation, security review, or development. You may also submit issues and pull requests.
-
-You may not redistribute KidoX, publish compiled builds, sell compiled builds, distribute modified versions, distribute forks, or use the KidoX name, icon, logo, or brand assets in a way that suggests an official release or endorsement without prior written permission.
-
-Official builds are distributed only through channels controlled by the KidoX maintainers.
+Official KidoX builds are distributed only through channels controlled by the KidoX maintainers. Third-party builds and forks must comply with the AGPL-3.0 license and may not use the KidoX name, logo, icon, or brand assets in a way that suggests an official release or endorsement.
 
 ## What's Included
 
@@ -85,7 +81,7 @@ xcodebuild -project KidoXApp.xcodeproj -scheme KidoX -configuration Debug build
 
 The project uses Swift Package Manager dependencies resolved by Xcode.
 
-Local builds are intended for evaluation, review, and development. They are not licensed for redistribution.
+Local builds are intended for evaluation, review, and development. If you distribute modified builds, you are responsible for complying with AGPL-3.0 and for removing or replacing reserved KidoX brand assets where required.
 
 ## Packaging
 
@@ -101,14 +97,18 @@ Release packaging requires local signing, notarization, and production configura
 
 Issues and pull requests are welcome when they improve the app, documentation, reliability, or security.
 
-By submitting a contribution, you agree that the maintainers may use, modify, distribute, and include your contribution in official KidoX releases.
+By submitting a contribution, you agree to license your contribution under AGPL-3.0 and confirm that you have the right to do so. For substantial contributions that may be included in dual-licensed or commercial-license-exempt releases, the maintainers may ask you to sign a contributor license agreement before merging.
 
 ## Disclaimer
 
-This repository is provided as a source-visible reference for the KidoX macOS app. It is not an official distribution channel for compiled binaries.
+This repository is the source distribution for KidoX Community Edition. It is not an official distribution channel for signed, notarized KidoX binaries.
 
 ## License
 
-No open-source license is granted.
+KidoX Community Edition is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0), available at <https://www.gnu.org/licenses/agpl-3.0.html>.
 
-The source code is made available only under the source-availability terms described above. All rights not expressly granted are reserved by the copyright holders. The KidoX name, logo, icon, and related brand assets are reserved.
+Use of KidoX Community Edition for commercial purposes is permitted, subject to full compliance with the terms and conditions of the AGPL-3.0 license.
+
+If you require a commercial license that provides an exemption from the AGPL-3.0 requirements, please contact us at <support@kidox.app>.
+
+The KidoX name, logo, icon, website assets, signing keys, release infrastructure, and other brand assets are not licensed under AGPL-3.0 unless explicitly stated otherwise.
