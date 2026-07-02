@@ -1531,6 +1531,23 @@
         }
       }
     },
+    "Grant Accessibility to capture the F4 or Launchpad key." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセシビリティを許可して F4 または Launchpad キーを検出します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授予辅助功能权限以捕获 F4 或 Launchpad 键。"
+          }
+        }
+      }
+    },
     "Grant Full Disk Access so KidoX can scan and remove app data in protected Library folders such as Containers and Group Containers." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2636,6 +2653,23 @@
         }
       }
     },
+    "Open KidoX with the F4 or Launchpad key." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "F4 または Launchpad キーで KidoX を開きます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 F4 或 Launchpad 键打开 KidoX。"
+          }
+        }
+      }
+    },
     "Open Privacy Settings" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3302,6 +3336,23 @@
         }
       }
     },
+    "Pinch with four fingers to show KidoX, spread to hide it." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "4本指でピンチして KidoX を表示し、広げると非表示にします。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "四指合拢显示 KidoX，张开隐藏。"
+          }
+        }
+      }
+    },
     "Show menu bar" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3604,6 +3655,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "左上角"
+          }
+        }
+      }
+    },
+    "Trackpad gesture" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トラックパッドジェスチャ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触控板手势"
           }
         }
       }

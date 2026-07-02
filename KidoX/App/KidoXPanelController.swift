@@ -17,6 +17,9 @@ final class KidoXPanelController {
     private var panel: KidoXPanel?
     private weak var foregroundHostingView: NSView?
     private weak var fieldEditorWarmupTextField: NSTextField?
+    private var interactiveGestureTransition: InteractiveGestureTransition?
+    private var lastInteractiveGestureProgress: CGFloat?
+    private var interactiveGestureStartOpenness: CGFloat?
     private var previousSystemUIMode: SystemUIMode?
     private var previousSystemUIOptions: SystemUIOptions?
     private var previousActivationPolicy: NSApplication.ActivationPolicy?
@@ -29,6 +32,11 @@ final class KidoXPanelController {
     nonisolated(unsafe) private var modalPresentationObserver: NSObjectProtocol?
     private var observedAppLanguageRaw: String
     private static let scaleAnimationKey = "kidoXScaleAnimation"
+
+    private enum InteractiveGestureTransition {
+        case presentation
+        case dismissal
+    }
 
     init(onOpenSettings: @escaping (SettingsPane?) -> Void = { _ in }) {
         self.onOpenSettings = onOpenSettings
@@ -88,6 +96,7 @@ final class KidoXPanelController {
     }
 
     func show() {
+        interactiveGestureTransition = nil
         if let panel, panel.isVisible {
             hide()
             return
@@ -104,9 +113,25 @@ final class KidoXPanelController {
     }
 
     func prepareForBackgroundLaunch() {
+        prewarmForGestureActivation()
         Task { @MainActor [weak self] in
             await self?.store.loadApplications()
         }
+    }
+
+    func prewarmForGestureActivation() {
+        guard panel == nil else { return }
+
+        store.prepareCachedApplicationsForPresentation()
+
+        let targetScreen = screenForPresentation()
+        let panel = makePanel(for: targetScreen)
+        self.panel = panel
+        resizePanel(panel, to: targetScreen)
+        configurePanelLevel(panel)
+        prepareForPresentationAnimation(panel)
+        prepareFirstVisibleFrame(panel)
+        prewarmSearchFieldEditor(panel)
     }
 
     private func present() {
@@ -147,6 +172,7 @@ final class KidoXPanelController {
     }
 
     func hide() {
+        interactiveGestureTransition = nil
         guard let panel, panel.isVisible else { return }
         keepsPanelOpenForModalInteraction = false
         resetTransientPresentationState()
@@ -155,6 +181,188 @@ final class KidoXPanelController {
         panel.makeFirstResponder(nil)
         removeOutsideClickMonitor()
         animateDismissal(panel)
+    }
+
+    func beginInteractiveGesturePresentation() {
+        if interactiveGestureTransition == .presentation {
+            return
+        }
+
+        if interactiveGestureTransition == .dismissal {
+            switchInteractiveGestureTransition(to: .presentation)
+            return
+        }
+
+        guard !(panel?.isVisible ?? false) else { return }
+
+        store.prepareCachedApplicationsForPresentation()
+        store.markPreparingForInitialPresentation()
+
+        let targetScreen = screenForPresentation()
+        let panel = panel ?? makePanel(for: targetScreen)
+        self.panel = panel
+        hideWorkItem?.cancel()
+        focusWorkItem?.cancel()
+        focusWorkItem = nil
+
+        resizePanel(panel, to: targetScreen)
+        configurePanelLevel(panel)
+        prepareForPresentationAnimation(panel)
+        prewarmSearchFieldEditor(panel)
+        applySystemMenuBarVisibilityPreference()
+        panel.makeKeyAndOrderFront(nil)
+        prepareFirstVisibleFrame(panel)
+        installOutsideClickMonitor()
+
+        interactiveGestureTransition = .presentation
+        lastInteractiveGestureProgress = nil
+        removeForegroundScaleAnimation()
+        applyInteractiveGestureProgress(0, transition: .presentation)
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await store.prepareForPresentation()
+        }
+    }
+
+    func updateInteractiveGesturePresentation(progress: CGFloat) {
+        if interactiveGestureTransition == .dismissal {
+            switchInteractiveGestureTransition(to: .presentation)
+        }
+        guard interactiveGestureTransition == .presentation else { return }
+        applyInteractiveGestureProgress(progress, transition: .presentation)
+    }
+
+    func finishInteractiveGesturePresentation() {
+        guard interactiveGestureTransition == .presentation, let panel else { return }
+        interactiveGestureTransition = nil
+        lastInteractiveGestureProgress = nil
+        animateInteractiveGestureProgress(to: 1, transition: .presentation) { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            self.resetForegroundAnimation()
+            panel.alphaValue = 1
+            self.scheduleSearchFocusRequest(for: panel)
+        }
+    }
+
+    func cancelInteractiveGesturePresentation() {
+        guard interactiveGestureTransition == .presentation, let panel else { return }
+        interactiveGestureTransition = nil
+        lastInteractiveGestureProgress = nil
+        animateInteractiveGestureProgress(to: 0, transition: .presentation) { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            self.removeOutsideClickMonitor()
+            panel.orderOut(nil)
+            self.restoreSystemMenuBarVisibility()
+            self.hideAppIfNoOtherWindowIsVisible()
+            self.parkPanelAfterDismissal(matching: panel)
+        }
+    }
+
+    func beginInteractiveGestureDismissal() {
+        if interactiveGestureTransition == .dismissal {
+            return
+        }
+
+        if interactiveGestureTransition == .presentation {
+            switchInteractiveGestureTransition(to: .dismissal)
+            return
+        }
+
+        guard let panel, panel.isVisible else { return }
+
+        keepsPanelOpenForModalInteraction = false
+        resetTransientPresentationState()
+        focusWorkItem?.cancel()
+        focusWorkItem = nil
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
+        panel.makeFirstResponder(nil)
+        removeOutsideClickMonitor()
+
+        interactiveGestureTransition = .dismissal
+        lastInteractiveGestureProgress = nil
+        removeForegroundScaleAnimation()
+        applyInteractiveGestureProgress(0, transition: .dismissal)
+    }
+
+    func updateInteractiveGestureDismissal(progress: CGFloat) {
+        if interactiveGestureTransition == .presentation {
+            switchInteractiveGestureTransition(to: .dismissal)
+        }
+        guard interactiveGestureTransition == .dismissal else { return }
+        applyInteractiveGestureProgress(progress, transition: .dismissal)
+    }
+
+    func finishInteractiveGestureDismissal() {
+        guard interactiveGestureTransition == .dismissal, let panel else { return }
+        interactiveGestureTransition = nil
+        lastInteractiveGestureProgress = nil
+        animateInteractiveGestureProgress(to: 1, transition: .dismissal) { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            panel.orderOut(nil)
+            self.restoreSystemMenuBarVisibility()
+            self.hideAppIfNoOtherWindowIsVisible()
+            panel.alphaValue = 1
+            self.resetForegroundAnimation()
+            self.parkPanelAfterDismissal(matching: panel)
+        }
+    }
+
+    func cancelInteractiveGestureDismissal() {
+        guard interactiveGestureTransition == .dismissal, let panel else { return }
+        interactiveGestureTransition = nil
+        lastInteractiveGestureProgress = nil
+        animateInteractiveGestureProgress(to: 0, transition: .dismissal) { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            self.resetForegroundAnimation()
+            panel.alphaValue = 1
+            self.installOutsideClickMonitor()
+            self.scheduleSearchFocusRequest(for: panel)
+        }
+    }
+
+    func beginInteractiveTrackpadGesture(direction: KidoXGlobalTrackpadGestureDirection) {
+        guard interactiveGestureStartOpenness == nil else { return }
+
+        let isVisible = panel?.isVisible ?? false
+        if !isVisible {
+            guard direction == .pinchIn else { return }
+            prepareHiddenPanelForInteractiveGesturePresentation()
+        } else {
+            prepareVisiblePanelForInteractiveGesture()
+        }
+
+        let startOpenness = currentPanelOpennessEstimate()
+        interactiveGestureStartOpenness = startOpenness
+        interactiveGestureTransition = startOpenness < 0.5 ? .presentation : .dismissal
+        lastInteractiveGestureProgress = nil
+        removeForegroundScaleAnimation()
+        applyInteractiveGestureOpenness(startOpenness)
+    }
+
+    func updateInteractiveTrackpadGesture(opennessDelta: CGFloat) {
+        guard let startOpenness = interactiveGestureStartOpenness else { return }
+        applyInteractiveGestureOpenness(startOpenness + opennessDelta)
+    }
+
+    func finishInteractiveTrackpadGesture(direction: KidoXGlobalTrackpadGestureDirection) {
+        guard interactiveGestureStartOpenness != nil else { return }
+        let currentOpenness = currentPanelOpennessEstimate()
+        let targetOpenness = targetOpennessAfterTrackpadRelease(
+            currentOpenness: currentOpenness,
+            direction: direction
+        )
+        animateInteractiveGestureOpenness(to: targetOpenness) { [weak self] in
+            self?.completeInteractiveTrackpadGesture(at: targetOpenness)
+        }
+    }
+
+    func cancelInteractiveTrackpadGesture() {
+        guard let startOpenness = interactiveGestureStartOpenness else { return }
+        animateInteractiveGestureOpenness(to: startOpenness) { [weak self] in
+            self?.completeInteractiveTrackpadGesture(at: startOpenness)
+        }
     }
 
     /// 启动 app 时使用：同步关闭 panel 并让出 active app 状态，避免与目标 panel 形态 app 抢焦点。
@@ -409,6 +617,7 @@ final class KidoXPanelController {
     private static let dismissalAlphaDuration: TimeInterval = 0.16
     private static let presentationInitialScale: CGFloat = 1.10
     private static let dismissalTargetScale: CGFloat = 1.035
+    private static let interactiveReleaseDuration: TimeInterval = 0.10
 
     private static func presentationTimingFunction() -> CAMediaTimingFunction {
         CAMediaTimingFunction(controlPoints: 0.22, 0.00, 0.20, 1.00)
@@ -569,7 +778,7 @@ final class KidoXPanelController {
                 if let layer = self?.foregroundHostingView?.layer {
                     self?.resetForegroundAnimation(layer)
                 }
-                self?.releasePanelResources(matching: panel)
+                self?.parkPanelAfterDismissal(matching: panel)
             }
         }
         hideWorkItem = workItem
@@ -587,6 +796,20 @@ final class KidoXPanelController {
         keepsPanelOpenForModalInteraction = false
         hideWorkItem = nil
         focusWorkItem = nil
+
+        IconCache.clearMemoryCaches()
+        KidoXReleaseTransientImageCaches()
+    }
+
+    private func parkPanelAfterDismissal(matching dismissedPanel: NSPanel?) {
+        guard let dismissedPanel else { return }
+        guard panel === dismissedPanel else { return }
+
+        keepsPanelOpenForModalInteraction = false
+        hideWorkItem = nil
+        focusWorkItem = nil
+        dismissedPanel.alphaValue = 1
+        resetForegroundAnimation()
 
         IconCache.clearMemoryCaches()
         KidoXReleaseTransientImageCaches()
@@ -611,6 +834,306 @@ final class KidoXPanelController {
         let tx = (1 - scale) * size.width / 2
         let ty = (1 - scale) * size.height / 2
         return CGAffineTransform(translationX: tx, y: ty).scaledBy(x: scale, y: scale)
+    }
+
+    private func applyInteractiveGestureProgress(
+        _ rawProgress: CGFloat,
+        transition: InteractiveGestureTransition
+    ) {
+        let progress = min(max(rawProgress, 0), 1)
+        guard let panel else { return }
+        if let lastInteractiveGestureProgress,
+           abs(lastInteractiveGestureProgress - progress) < 0.003 {
+            return
+        }
+        lastInteractiveGestureProgress = progress
+
+        let state = interactiveGestureVisualState(progress: progress, transition: transition)
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        panel.alphaValue = state.alpha
+        if let foreground = foregroundHostingView,
+           let layer = foreground.layer {
+            layer.transform = CATransform3DMakeAffineTransform(
+                centeredScaleTransform(scale: state.scale, in: foreground.bounds.size)
+            )
+        }
+        CATransaction.commit()
+    }
+
+    private func applyInteractiveGestureOpenness(_ rawOpenness: CGFloat) {
+        let openness = min(max(rawOpenness, 0), 1)
+        guard let panel else { return }
+        if let lastInteractiveGestureProgress,
+           abs(lastInteractiveGestureProgress - openness) < 0.003 {
+            return
+        }
+        lastInteractiveGestureProgress = openness
+
+        let state = interactiveGestureVisualState(openness: openness)
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        panel.alphaValue = state.alpha
+        if let foreground = foregroundHostingView,
+           let layer = foreground.layer {
+            layer.transform = CATransform3DMakeAffineTransform(
+                centeredScaleTransform(scale: state.scale, in: foreground.bounds.size)
+            )
+        }
+        CATransaction.commit()
+    }
+
+    private func switchInteractiveGestureTransition(to transition: InteractiveGestureTransition) {
+        guard interactiveGestureTransition != transition else { return }
+        guard let previousTransition = interactiveGestureTransition else { return }
+
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
+        focusWorkItem?.cancel()
+        focusWorkItem = nil
+        removeForegroundScaleAnimation()
+
+        let currentProgress = lastInteractiveGestureProgress ?? currentProgressEstimate(for: previousTransition)
+        let mappedProgress = 1 - currentProgress
+        interactiveGestureTransition = transition
+        lastInteractiveGestureProgress = nil
+
+        if transition == .presentation {
+            installOutsideClickMonitor()
+        } else {
+            removeOutsideClickMonitor()
+        }
+
+        applyInteractiveGestureProgress(mappedProgress, transition: transition)
+    }
+
+    private func currentProgressEstimate(for transition: InteractiveGestureTransition) -> CGFloat {
+        guard let panel else { return 0 }
+        switch transition {
+        case .presentation:
+            return min(max(panel.alphaValue, 0), 1)
+        case .dismissal:
+            return min(max(1 - panel.alphaValue, 0), 1)
+        }
+    }
+
+    private func currentPanelOpennessEstimate() -> CGFloat {
+        guard let panel, panel.isVisible else { return 0 }
+        return min(max(panel.alphaValue, 0), 1)
+    }
+
+    private func targetOpennessAfterTrackpadRelease(
+        currentOpenness: CGFloat,
+        direction: KidoXGlobalTrackpadGestureDirection
+    ) -> CGFloat {
+        switch direction {
+        case .pinchIn:
+            return currentOpenness >= 0.38 ? 1 : 0
+        case .spreadOut:
+            return currentOpenness <= 0.62 ? 0 : 1
+        }
+    }
+
+    private func prepareHiddenPanelForInteractiveGesturePresentation() {
+        store.prepareCachedApplicationsForPresentation()
+        store.markPreparingForInitialPresentation()
+
+        let targetScreen = screenForPresentation()
+        let panel = panel ?? makePanel(for: targetScreen)
+        self.panel = panel
+        hideWorkItem?.cancel()
+        focusWorkItem?.cancel()
+        focusWorkItem = nil
+
+        resizePanel(panel, to: targetScreen)
+        configurePanelLevel(panel)
+        prepareForPresentationAnimation(panel)
+        prewarmSearchFieldEditor(panel)
+        applySystemMenuBarVisibilityPreference()
+        panel.makeKeyAndOrderFront(nil)
+        prepareFirstVisibleFrame(panel)
+        installOutsideClickMonitor()
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await store.prepareForPresentation()
+        }
+    }
+
+    private func prepareVisiblePanelForInteractiveGesture() {
+        guard let panel, panel.isVisible else { return }
+        keepsPanelOpenForModalInteraction = false
+        resetTransientPresentationState()
+        focusWorkItem?.cancel()
+        focusWorkItem = nil
+        hideWorkItem?.cancel()
+        hideWorkItem = nil
+        panel.makeFirstResponder(nil)
+    }
+
+    private func animateInteractiveGestureOpenness(
+        to targetOpenness: CGFloat,
+        completion: @escaping @MainActor () -> Void
+    ) {
+        let openness = min(max(targetOpenness, 0), 1)
+        guard let panel else {
+            completion()
+            return
+        }
+
+        let state = interactiveGestureVisualState(openness: openness)
+        lastInteractiveGestureProgress = openness
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.interactiveReleaseDuration
+            context.timingFunction = Self.presentationTimingFunction()
+            panel.animator().alphaValue = state.alpha
+        }
+
+        if let foreground = foregroundHostingView,
+           let layer = foreground.layer {
+            let targetTransform = CATransform3DMakeAffineTransform(
+                centeredScaleTransform(scale: state.scale, in: foreground.bounds.size)
+            )
+            let currentTransform = layer.presentation()?.transform ?? layer.transform
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.transform = targetTransform
+            CATransaction.commit()
+
+            let animation = CABasicAnimation(keyPath: "transform")
+            animation.fromValue = NSValue(caTransform3D: currentTransform)
+            animation.toValue = NSValue(caTransform3D: targetTransform)
+            animation.duration = Self.interactiveReleaseDuration
+            animation.timingFunction = Self.presentationTimingFunction()
+            animation.fillMode = .both
+            animation.isRemovedOnCompletion = true
+            layer.add(animation, forKey: Self.scaleAnimationKey)
+        }
+
+        let workItem = DispatchWorkItem {
+            Task { @MainActor in
+                completion()
+            }
+        }
+        hideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.interactiveReleaseDuration + 0.01, execute: workItem)
+    }
+
+    private func completeInteractiveTrackpadGesture(at openness: CGFloat) {
+        let shouldRemainVisible = openness >= 0.5
+        interactiveGestureTransition = nil
+        interactiveGestureStartOpenness = nil
+        lastInteractiveGestureProgress = nil
+
+        if shouldRemainVisible, let panel {
+            resetForegroundAnimation()
+            panel.alphaValue = 1
+            installOutsideClickMonitor()
+            scheduleSearchFocusRequest(for: panel)
+        } else if let panel {
+            removeOutsideClickMonitor()
+            panel.orderOut(nil)
+            restoreSystemMenuBarVisibility()
+            hideAppIfNoOtherWindowIsVisible()
+            panel.alphaValue = 1
+            resetForegroundAnimation()
+            parkPanelAfterDismissal(matching: panel)
+        }
+    }
+
+    private func animateInteractiveGestureProgress(
+        to targetProgress: CGFloat,
+        transition: InteractiveGestureTransition,
+        completion: @escaping @MainActor () -> Void
+    ) {
+        let progress = min(max(targetProgress, 0), 1)
+        guard let panel else {
+            completion()
+            return
+        }
+
+        let state = interactiveGestureVisualState(progress: progress, transition: transition)
+        lastInteractiveGestureProgress = progress
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Self.interactiveReleaseDuration
+            context.timingFunction = Self.presentationTimingFunction()
+            panel.animator().alphaValue = state.alpha
+        }
+
+        if let foreground = foregroundHostingView,
+           let layer = foreground.layer {
+            let targetTransform = CATransform3DMakeAffineTransform(
+                centeredScaleTransform(scale: state.scale, in: foreground.bounds.size)
+            )
+            let currentTransform = layer.presentation()?.transform ?? layer.transform
+
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.transform = targetTransform
+            CATransaction.commit()
+
+            let animation = CABasicAnimation(keyPath: "transform")
+            animation.fromValue = NSValue(caTransform3D: currentTransform)
+            animation.toValue = NSValue(caTransform3D: targetTransform)
+            animation.duration = Self.interactiveReleaseDuration
+            animation.timingFunction = Self.presentationTimingFunction()
+            animation.fillMode = .both
+            animation.isRemovedOnCompletion = true
+            layer.add(animation, forKey: Self.scaleAnimationKey)
+        }
+
+        let workItem = DispatchWorkItem {
+            Task { @MainActor in
+                completion()
+            }
+        }
+        hideWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.interactiveReleaseDuration + 0.01, execute: workItem)
+    }
+
+    private func interactiveGestureVisualState(
+        progress: CGFloat,
+        transition: InteractiveGestureTransition
+    ) -> (alpha: CGFloat, scale: CGFloat) {
+        switch transition {
+        case .presentation:
+            return (
+                alpha: progress,
+                scale: Self.presentationInitialScale - ((Self.presentationInitialScale - 1) * progress)
+            )
+        case .dismissal:
+            return (
+                alpha: 1 - progress,
+                scale: 1 + ((Self.dismissalTargetScale - 1) * progress)
+            )
+        }
+    }
+
+    private func interactiveGestureVisualState(openness: CGFloat) -> (alpha: CGFloat, scale: CGFloat) {
+        let startOpenness = interactiveGestureStartOpenness ?? openness
+        if startOpenness < 0.5 {
+            return (
+                alpha: openness,
+                scale: Self.presentationInitialScale - ((Self.presentationInitialScale - 1) * openness)
+            )
+        }
+        return (
+            alpha: openness,
+            scale: 1 + ((Self.dismissalTargetScale - 1) * (1 - openness))
+        )
+    }
+
+    private func removeForegroundScaleAnimation() {
+        guard let layer = foregroundHostingView?.layer else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.removeAnimation(forKey: Self.scaleAnimationKey)
+        CATransaction.commit()
     }
 
     private func resetForegroundAnimation(_ layer: CALayer? = nil) {
