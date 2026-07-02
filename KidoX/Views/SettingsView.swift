@@ -244,6 +244,8 @@ private struct GeneralPane: View {
     private var showMenuBarIcon = true
     @AppStorage(KidoXActivationPreferenceKeys.f4HotKeyEnabled)
     private var f4HotKeyEnabled = true
+    @AppStorage(KidoXActivationPreferenceKeys.globalTrackpadGestureEnabled)
+    private var globalTrackpadGestureEnabled = true
     @AppStorage(KidoXActivationPreferenceKeys.hotCorner)
     private var hotCorner = KidoXHotCorner.none.rawValue
 
@@ -302,6 +304,18 @@ private struct GeneralPane: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(KidoXL10n.ui("Launch with F4", languageRawValue: appLanguageRaw))
                         Text(f4HotKeyDescription)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                LabeledContent {
+                    Toggle("", isOn: $globalTrackpadGestureEnabled)
+                        .labelsHidden()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(KidoXL10n.ui("Trackpad gesture", languageRawValue: appLanguageRaw))
+                        Text(KidoXL10n.ui("Pinch with four fingers to show KidoX, spread to hide it.", languageRawValue: appLanguageRaw))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
