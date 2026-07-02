@@ -403,10 +403,10 @@ private struct GeneralPane: View {
         }
 
         if isAccessibilityAccessGranted {
-            return KidoXL10n.ui("Open KidoX with the F4 or Launchpad key, without changing system keyboard settings.", languageRawValue: appLanguageRaw)
+            return KidoXL10n.ui("Open KidoX with the F4 or Launchpad key.", languageRawValue: appLanguageRaw)
         }
 
-        return KidoXL10n.ui("Grant Accessibility to capture the F4 or Launchpad key without changing system keyboard settings.", languageRawValue: appLanguageRaw)
+        return KidoXL10n.ui("Grant Accessibility to capture the F4 or Launchpad key.", languageRawValue: appLanguageRaw)
     }
 
     private func refreshAccessibilityAccessState() {
