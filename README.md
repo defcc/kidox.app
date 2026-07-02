@@ -1,7 +1,7 @@
 <div align="center">
   <img src="Resources/Icons/KidoX-400.png" width="160" height="160" alt="KidoX app icon">
   <h1>KidoX</h1>
-  <p>A Modern Launchpad Replacement for Mac. Built with Swift and SwiftUI.</p>
+  <p>A modern Launchpad replacement for Mac, with gestures, search, pages, and app uninstall.</p>
   <p>
     <a href="https://kidox.app">Website</a>
     ·
@@ -19,6 +19,28 @@ KidoX is built for people who still want a fast, visual, keyboard-friendly way t
 It restores the Launchpad-style grid while improving the parts that matter day to day: quick search, clean organization, smooth navigation, customizable behavior, and a native macOS feel built with SwiftUI.
 
 KidoX is not a system hack or a patched copy of Launchpad. It is an independent macOS app designed to provide a modern launcher experience that feels at home on current versions of macOS.
+
+## Features
+
+Core features:
+
+- Launchpad-style app grid with pages, folders, drag-and-drop arrangement, and keyboard navigation
+- Fast in-place search for installed apps
+- F4 / Launchpad key support, custom shortcuts, hot corners, menu-bar access, and Dock access
+- Optional global four-finger trackpad gesture: pinch to show KidoX, spread to hide it
+- Automatic scanning of standard Applications folders
+- Wallpaper, glass, and solid-color appearance modes
+- Localized app language support
+
+Pro features:
+
+- Advanced sorting modes, including recently used, most used, newly added, and name
+- Hidden Apps for keeping rarely used apps out of the launch panel
+- Built-in app uninstaller with related app data cleanup and protected-system-app checks
+- Custom image backgrounds
+- Backup and restore for layout, hidden apps, launch stats, sorting, shortcut, appearance, Dock icon, and custom image
+
+The four-finger gesture is optional and disabled by default. It uses a runtime-loaded private macOS multitouch framework, so official KidoX builds are distributed outside the Mac App Store.
 
 ## Overview
 
